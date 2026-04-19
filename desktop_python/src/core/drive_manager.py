@@ -71,3 +71,18 @@ class DriveManager:
                 fields='id'
             ).execute()
             return new_file.get('id')
+    
+    def find_file(self, filename):
+        """Busca un archivo por nombre y devuelve su ID."""
+        service = self._get_service()
+        query = f"name = '{filename}' and trashed = false"
+        results = service.files().list(q=query, fields="files(id, name)").execute()
+        files = results.get('files', [])
+        return files[0]['id'] if files else None
+
+    def download_file(self, file_id, local_path):
+        """Descarga un archivo de Drive al disco local."""
+        service = self._get_service()
+        request = service.files().get_media(fileId=file_id)
+        with open(local_path, "wb") as f:
+            f.write(request.execute())
