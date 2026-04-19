@@ -16,9 +16,9 @@ class DriveManager:
     def __init__(self, credentials_path='credentials.json', token_path='token.json'):
         self.credentials_path = credentials_path
         self.token_path = token_path
-        self.service = self._authenticate()
+        self.service = self.authenticate()
 
-    def _authenticate(self):
+    def authenticate(self):
         """
         Handles the OAuth2 flow. Returns an authorized Drive API service.
         """
@@ -74,7 +74,7 @@ class DriveManager:
     
     def find_file(self, filename):
         """Busca un archivo por nombre y devuelve su ID."""
-        service = self._get_service()
+        service = self.service
         query = f"name = '{filename}' and trashed = false"
         results = service.files().list(q=query, fields="files(id, name)").execute()
         files = results.get('files', [])
@@ -82,7 +82,7 @@ class DriveManager:
 
     def download_file(self, file_id, local_path):
         """Descarga un archivo de Drive al disco local."""
-        service = self._get_service()
+        service = self.service
         request = service.files().get_media(fileId=file_id)
         with open(local_path, "wb") as f:
             f.write(request.execute())

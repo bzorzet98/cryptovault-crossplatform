@@ -12,13 +12,12 @@ class VaultOrchestrator:
         
         # --- DETECCIÓN DE ENTORNO (EXE vs VS Code) ---
         if getattr(sys, 'frozen', False):
-            # Si estamos corriendo como un ejecutable compilado (.exe / binario)
+            # Si es ejecutable, la raíz es donde está el .exe
             self.base_dir = os.path.dirname(sys.executable)
         else:
-            # Si estamos corriendo como script de Python normal
-            # Subimos 3 niveles desde src/logic/orchestrator.py hasta la raíz y apuntamos a desktop_python
-            root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            self.base_dir = os.path.join(root_dir, 'desktop_python')
+            # CORRECCIÓN: Si es script, subimos exactamente 3 niveles.
+            # orchestrator.py (1) -> logic (2) -> src (3) -> desktop_python
+            self.base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
         # --- RUTAS ABSOLUTAS DEFINITIVAS ---
         self.vault_path = os.path.join(self.base_dir, 'vault.data')
@@ -61,7 +60,8 @@ class VaultOrchestrator:
         except Exception as e:
             self.app.current_view.show_message(f"Error Drive: {e}", "error")
         finally:
-            self.app.current_view.toggle_loading(False)
+            if hasattr(self.app.current_view, 'toggle_loading'):
+                self.app.current_view.toggle_loading(False)
 
     def handle_readonly_setup(self):
         """Activa el modo donde puedes ver pero no tocar."""

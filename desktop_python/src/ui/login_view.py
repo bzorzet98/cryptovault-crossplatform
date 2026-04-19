@@ -1,33 +1,28 @@
 import customtkinter as ctk
 
-class SetupView(ctk.CTkFrame):
+class LoginView(ctk.CTkFrame):
     def __init__(self, master, controller):
         super().__init__(master)
         self.controller = controller
+
+        ctk.CTkLabel(self, text="🔐 CryptoVault", font=("Roboto", 28, "bold")).pack(pady=30)
         
-        ctk.CTkLabel(self, text="Configuración Inicial", font=("Roboto", 24, "bold")).pack(pady=20)
-        ctk.CTkLabel(self, text="Crea tu Master Password para cifrar tus datos.").pack(pady=10)
-
-        self.password_entry = ctk.CTkEntry(self, placeholder_text="Nueva Password", show="*", width=250)
-        self.password_entry.pack(pady=10)
-
-        self.confirm_entry = ctk.CTkEntry(self, placeholder_text="Confirmar Password", show="*", width=250)
-        self.confirm_entry.pack(pady=10)
+        self.pass_entry = ctk.CTkEntry(self, placeholder_text="Master Password", show="*", width=250)
+        self.pass_entry.pack(pady=10)
 
         self.message_label = ctk.CTkLabel(self, text="")
         self.message_label.pack(pady=5)
 
-        ctk.CTkButton(self, text="Crear Bóveda", command=self.on_submit).pack(pady=20)
+        # Al hacer clic, enviamos la contraseña al Orchestrator
+        ctk.CTkButton(self, text="Desbloquear", command=self.on_submit).pack(pady=20)
 
     def on_submit(self):
-        p1 = self.password_entry.get()
-        p2 = self.confirm_entry.get()
-        if p1 == p2 and len(p1) >= 4:
-            # Llamamos al Orchestrator
-            self.controller.handle_setup(p1)
+        password = self.pass_entry.get()
+        if password:
+            self.controller.handle_login(password)
         else:
-            self.show_message("Las claves no coinciden o son muy cortas", "error")
+            self.show_message("Ingresa tu contraseña", "error")
 
     def show_message(self, text, msg_type="info"):
-        color = "red" if msg_type == "error" else "green"
+        color = "#ff4d4d" if msg_type == "error" else "#2c8558"
         self.message_label.configure(text=text, text_color=color)

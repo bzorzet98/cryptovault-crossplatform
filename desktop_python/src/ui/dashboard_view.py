@@ -11,7 +11,6 @@ class DashboardView(ctk.CTkFrame):
         
         ctk.CTkLabel(header, text="Mi Bóveda", font=("Roboto", 22, "bold")).pack(side="left")
         
-        # El botón salir ahora llama directamente al Orchestrator
         ctk.CTkButton(header, text="Salir", width=60, fg_color="#444444", 
                       command=self.controller.handle_logout).pack(side="right")
 
@@ -20,7 +19,7 @@ class DashboardView(ctk.CTkFrame):
         self.actions.pack(fill="x", padx=20, pady=10)
         
         self.btn_add = ctk.CTkButton(self.actions, text="+ Agregar Credencial", 
-                                     command=self.open_add_popup)
+                                     command=self.toggle_add_form)
         self.btn_add.pack(side="left", padx=10, pady=10)
         
         self.btn_sync = ctk.CTkButton(self.actions, text="🔄 Sync Drive", 
@@ -28,32 +27,74 @@ class DashboardView(ctk.CTkFrame):
                                       command=self.controller.handle_sync_drive)
         self.btn_sync.pack(side="right", padx=10, pady=10)
 
-        # Lógica de "Solo Lectura"
-        # Si el modo es READ_ONLY, desactivamos crear y ocultamos sincronizar
         if getattr(self.controller, 'mode', 'NORMAL') == "READ_ONLY":
             self.btn_add.configure(state="disabled", text="🔒 Modo Lectura")
             self.btn_sync.pack_forget()
 
-        # Label para mensajes de éxito/error
         self.message_label = ctk.CTkLabel(self, text="")
         self.message_label.pack()
+
+        # --- PANEL DE FORMULARIO OCULTO (NUEVO) ---
+        self.form_frame = ctk.CTkFrame(self, fg_color="#2b2b2b")
+        # No le hacemos pack() aquí para que empiece oculto
+
+        ctk.CTkLabel(self.form_frame, text="Nueva Credencial", font=("Roboto", 16, "bold")).pack(pady=10)
+        
+        self.entry_name = ctk.CTkEntry(self.form_frame, placeholder_text="Servicio (ej: Netflix)", width=250)
+        self.entry_name.pack(pady=5)
+        
+        self.entry_user = ctk.CTkEntry(self.form_frame, placeholder_text="Usuario / Email", width=250)
+        self.entry_user.pack(pady=5)
+        
+        self.entry_pass = ctk.CTkEntry(self.form_frame, placeholder_text="Contraseña", show="*", width=250)
+        self.entry_pass.pack(pady=5)
+
+        form_buttons = ctk.CTkFrame(self.form_frame, fg_color="transparent")
+        form_buttons.pack(pady=10)
+        
+        ctk.CTkButton(form_buttons, text="Guardar", width=100, command=self.submit_form).pack(side="left", padx=5)
+        ctk.CTkButton(form_buttons, text="Cancelar", width=100, fg_color="#555555", command=self.toggle_add_form).pack(side="right", padx=5)
 
         # --- LISTA DE CONTRASEÑAS ---
         self.scroll_frame = ctk.CTkScrollableFrame(self, label_text="Contraseñas Guardadas")
         self.scroll_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
-        # Renderizamos los datos que llegaron del Orchestrator
         self.render(data)
 
-    # --- MÉTODOS ESTÁNDAR ---
+    # --- MÉTODOS DE LA INTERFAZ ---
+
+    def toggle_add_form(self):
+        """Muestra u oculta el panel para agregar credenciales."""
+        if self.form_frame.winfo_ismapped():
+            # Si está visible, lo ocultamos y limpiamos las cajas
+            self.form_frame.pack_forget()
+            self.entry_name.delete(0, 'end')
+            self.entry_user.delete(0, 'end')
+            self.entry_pass.delete(0, 'end')
+            self.btn_add.configure(state="normal")
+        else:
+            # Si está oculto, lo mostramos justo arriba de la lista
+            self.form_frame.pack(after=self.message_label, fill="x", padx=20, pady=5)
+            self.btn_add.configure(state="disabled")
+
+    def submit_form(self):
+        """Valida y envía la nueva credencial al Orchestrator."""
+        n = self.entry_name.get()
+        u = self.entry_user.get()
+        p = self.entry_pass.get()
+        
+        if n and u and p:
+            self.controller.handle_save_credential(n, u, p)
+            self.toggle_add_form() # Ocultar formulario al terminar
+        else:
+            self.show_message("Por favor, llena todos los campos", "error")
+
+    # --- MÉTODOS ESTÁNDAR (Igual que antes) ---
 
     def render(self, data):
-        """Limpia la lista actual y dibuja las credenciales del diccionario."""
-        # 1. Limpiar los items viejos
         for widget in self.scroll_frame.winfo_children():
             widget.destroy()
 
-        # 2. Dibujar los items nuevos
         items = data.get("items", [])
         if not items:
             ctk.CTkLabel(self.scroll_frame, text="Tu bóveda está vacía.", text_color="gray").pack(pady=20)
@@ -63,26 +104,22 @@ class DashboardView(ctk.CTkFrame):
             self._create_list_item(item_data["name"], item_data["username"], item_data["password"])
 
     def _create_list_item(self, title, user, password):
-        """Crea la fila visual para una sola contraseña."""
         item = ctk.CTkFrame(self.scroll_frame)
         item.pack(fill="x", pady=5)
         
         info_text = f"{title}  |  {user}"
         ctk.CTkLabel(item, text=info_text, font=("Roboto", 14)).pack(side="left", padx=10)
         
-        # Botón para copiar la contraseña al portapapeles
         btn_copy = ctk.CTkButton(item, text="Copiar Pass", width=80,
                                  command=lambda p=password: self.copy_to_clipboard(p))
         btn_copy.pack(side="right", padx=10, pady=5)
 
     def copy_to_clipboard(self, text):
-        """Copia el texto al portapapeles del sistema operativo."""
         self.clipboard_clear()
         self.clipboard_append(text)
         self.show_message("¡Contraseña copiada!", "success")
 
     def toggle_loading(self, is_loading):
-        """Desactiva el botón de sync mientras sube a Drive."""
         if is_loading:
             self.btn_sync.configure(state="disabled", text="Sincronizando...")
         else:
@@ -91,38 +128,3 @@ class DashboardView(ctk.CTkFrame):
     def show_message(self, text, msg_type="info"):
         color = "#ff4d4d" if msg_type == "error" else "#2c8558"
         self.message_label.configure(text=text, text_color=color)
-
-    # --- POP-UP (NUEVA CREDENCIAL) ---
-
-    def open_add_popup(self):
-        """Abre una ventana emergente para añadir un nuevo dato."""
-        popup = ctk.CTkToplevel(self)
-        popup.title("Nueva Credencial")
-        popup.geometry("300x350")
-        popup.attributes("-topmost", True) # Mantener al frente
-        popup.grab_set() # Bloquear la ventana principal mientras este popup esté abierto
-
-        ctk.CTkLabel(popup, text="Agregar a Bóveda", font=("Roboto", 18, "bold")).pack(pady=15)
-
-        entry_name = ctk.CTkEntry(popup, placeholder_text="Servicio (ej: Netflix)")
-        entry_name.pack(pady=10, padx=20, fill="x")
-
-        entry_user = ctk.CTkEntry(popup, placeholder_text="Usuario / Email")
-        entry_user.pack(pady=10, padx=20, fill="x")
-
-        entry_pass = ctk.CTkEntry(popup, placeholder_text="Contraseña", show="*")
-        entry_pass.pack(pady=10, padx=20, fill="x")
-
-        def submit_form():
-            n = entry_name.get()
-            u = entry_user.get()
-            p = entry_pass.get()
-            
-            if n and u and p:
-                # Enviar al cerebro (Orchestrator) para cifrar y guardar
-                self.controller.handle_save_credential(n, u, p)
-                popup.destroy() # Cerrar popup al terminar
-            else:
-                ctk.CTkLabel(popup, text="Llena todos los campos", text_color="red").pack()
-
-        ctk.CTkButton(popup, text="Guardar", command=submit_form).pack(pady=20)

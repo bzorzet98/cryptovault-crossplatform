@@ -9,6 +9,7 @@ from src.logic.orchestrator import VaultOrchestrator
 from src.ui.login_view import LoginView
 from src.ui.setup_view import SetupView
 from src.ui.dashboard_view import DashboardView
+from src.ui.welcome_view import WelcomeView
 
 class CryptoVaultApp(ctk.CTk):
     def __init__(self):
@@ -29,7 +30,12 @@ class CryptoVaultApp(ctk.CTk):
     def clear_view(self):
         if self.current_view:
             self.current_view.destroy()
-
+            
+    def show_welcome_view(self):
+        self.clear_view()
+        self.current_view = WelcomeView(self, controller=self.orchestrator)
+        self.current_view.pack(fill="both", expand=True)
+        
     def show_setup_view(self):
         self.clear_view()
         # Le pasamos el orquestador (controller) a la vista
