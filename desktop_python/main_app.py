@@ -10,6 +10,7 @@ from src.ui.login_view import LoginView
 from src.ui.setup_view import SetupView
 from src.ui.dashboard_view import DashboardView
 from src.ui.welcome_view import WelcomeView
+from src.ui.loading_view import LoadingView
 
 class CryptoVaultApp(ctk.CTk):
     def __init__(self):
@@ -34,6 +35,11 @@ class CryptoVaultApp(ctk.CTk):
     def show_welcome_view(self):
         self.clear_view()
         self.current_view = WelcomeView(self, controller=self.orchestrator)
+        self.current_view.pack(fill="both", expand=True)
+        
+    def show_loading_view(self):
+        self.clear_view()
+        self.current_view = LoadingView(self)
         self.current_view.pack(fill="both", expand=True)
         
     def show_setup_view(self):

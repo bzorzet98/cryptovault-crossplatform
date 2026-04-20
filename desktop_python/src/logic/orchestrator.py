@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from src.core.crypto import CryptoManager
 from src.core.storage import StorageManager
 from src.core.drive_manager import DriveManager
@@ -31,17 +32,44 @@ class VaultOrchestrator:
         self.storage = StorageManager(file_path=self.vault_path)
 
         self.mode = "NORMAL"  # MODOS: NORMAL, SYNC, READ_ONLY
+        
     # --- CICLO DE VIDA Y NAVEGACIÓN ---
-
     def start_app(self):
-        """Decide el punto de entrada basado en la existencia de datos."""
-        if self.storage.vault_exists():
-            # Si hay datos locales, vamos a login directo
-            self.app.show_login_view()
-        else:
-            # Si no hay nada, preguntamos qué quiere hacer el usuario
-            self.app.show_welcome_view()
+        """Secuencia de arranque: Sincroniza en segundo plano y termina SIEMPRE en Bienvenida."""
+        self.app.show_loading_view()
+        loading_screen = self.app.current_view
 
+        try:
+            loading_screen.update_status("Buscando configuraciones...", 0.2)
+            
+            # 1. Determinar el modo inicial según el token
+            if os.path.exists(self.token_path):
+                self.mode = "SYNC"
+                loading_screen.update_status("Sincronizando con Drive...", 0.5)
+                
+                # Sincronización silenciosa: intentamos bajar la última versión
+                try:
+                    self.drive.authenticate() 
+                    file_id = self.drive.find_file("vault.data")
+                    if file_id:
+                        self.drive.download_file(file_id, self.vault_path)
+                        loading_screen.update_status("Nube actualizada.", 0.8)
+                except Exception as e:
+                    # Si falla el internet, no pasa nada, seguimos con lo que hay local
+                    print(f"Modo Offline: {e}")
+            else:
+                self.mode = "NORMAL"
+                loading_screen.update_status("Modo local.", 0.6)
+
+            # 2. FINALIZACIÓN: Siempre vamos a WelcomeView, pase lo que pase
+            # Le damos 1 segundo para que el usuario vea que terminó de cargar
+            self.app.after(1000, self.app.show_welcome_view)
+
+        except Exception as e:
+            print(f"Error crítico en arranque: {e}")
+            # En caso de error total, también volvemos a la bienvenida por seguridad
+            self.app.show_welcome_view()
+                
     def handle_drive_connection(self):
         """Conecta a Drive e intenta recuperar datos."""
         self.app.current_view.toggle_loading(True)
@@ -63,6 +91,35 @@ class VaultOrchestrator:
             if hasattr(self.app.current_view, 'toggle_loading'):
                 self.app.current_view.toggle_loading(False)
 
+    def handle_drive_logout(self):
+        """Elimina el vínculo con Google Drive de forma silenciosa."""
+        import os
+        try:
+            # 1. Borramos el archivo físico del token
+            if os.path.exists(self.token_path):
+                try:
+                    os.remove(self.token_path)
+                    print("Token eliminado físicamente.")
+                except Exception as e:
+                    print(f"Error al eliminar token: {e}")
+                
+            # 2. Cambiamos el modo de la app ANTES de cualquier otra cosa
+            self.mode = "NORMAL"
+            
+            # 3. IMPORTANTE: No re-instanciamos DriveManager aquí para evitar que abra el navegador.
+            if self.drive:
+                self.drive.service = None 
+
+            if hasattr(self.app.current_view, 'vault_data'):
+                current_data = self.app.current_view.vault_data
+                self.app.show_dashboard_view(current_data)
+                
+            if hasattr(self.app.current_view, 'show_message'):
+                self.app.current_view.show_message("Se ha desvinculado de Google Drive.", "info")
+                    
+        except Exception as e:
+            print(f"Error al desvincular: {e}")
+            
     def handle_readonly_setup(self):
         """Activa el modo donde puedes ver pero no tocar."""
         self.mode = "READ_ONLY"
@@ -99,9 +156,10 @@ class VaultOrchestrator:
             self.app.current_view.show_message("Contraseña incorrecta", "error")
 
     def handle_logout(self):
-        """Limpia la memoria y devuelve al usuario a la pantalla de login."""
+        """Cierra la sesión y vuelve SIEMPRE a la pantalla de bienvenida."""
         self.master_key = None
-        self.app.show_login_view()
+        self.mode = "NORMAL" # Resetear modo por seguridad
+        self.app.show_welcome_view()
 
 
     # --- GESTIÓN DE DATOS Y SINCRONIZACIÓN ---
@@ -131,17 +189,32 @@ class VaultOrchestrator:
             self.app.current_view.show_message(f"Error crítico al guardar: {e}", "error")
 
     def handle_sync_drive(self):
-        """Sube la bóveda encriptada local a Google Drive."""
-        self.app.current_view.toggle_loading(True)
+        """Sube la bóveda a Google Drive y actualiza la interfaz al modo SYNC."""
+        if hasattr(self.app.current_view, 'toggle_loading'):
+            self.app.current_view.toggle_loading(True)
+            
         try:
-            # Se utiliza el método get_path() de storage para evitar problemas de rutas relativas
             local_vault_path = self.storage.get_path()
             
-            # Subir a Drive
+            # 1. Subir a Drive
             self.drive.upload_vault(local_vault_path)
             
-            self.app.current_view.show_message("Sincronización exitosa", "success")
+            # 2. Actualizar el estado interno de la app a modo nube
+            self.mode = "SYNC"
+            
+            # 3. Recargar el Dashboard para que aparezca el botón "Desvincular"
+            # Volvemos a leer y desencriptar los datos para pasárselos a la vista fresca
+            encrypted_data = self.storage.load_vault()
+            vault_dict = self.crypto.decrypt(encrypted_data, self.master_key)
+            self.app.show_dashboard_view(vault_dict)
+            
+            # 4. Mostrar el mensaje en la nueva vista generada
+            if hasattr(self.app.current_view, 'show_message'):
+                self.app.current_view.show_message("Sincronizado y vinculado a Drive correctamente.", "success")
+                
         except Exception as e:
-            self.app.current_view.show_message(f"Error de sincronización: {e}", "error")
+            if hasattr(self.app.current_view, 'show_message'):
+                self.app.current_view.show_message(f"Error de sincronización: {e}", "error")
         finally:
-            self.app.current_view.toggle_loading(False)
+            if hasattr(self.app.current_view, 'toggle_loading'):
+                self.app.current_view.toggle_loading(False)

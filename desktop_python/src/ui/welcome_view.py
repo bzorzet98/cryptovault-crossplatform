@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import os
 
 class WelcomeView(ctk.CTkFrame):
     def __init__(self, master, controller):
@@ -7,10 +8,9 @@ class WelcomeView(ctk.CTkFrame):
 
         ctk.CTkLabel(self, text="¡Bienvenido a CryptoVault!", font=("Roboto", 24, "bold")).pack(pady=40)
         
-        ctk.CTkLabel(self, text="Parece que es tu primera vez aquí.\n¿Cómo quieres empezar?", 
-                     justify="center").pack(pady=10)
+        ctk.CTkLabel(self, text="¿Cómo deseas ingresar?", justify="center").pack(pady=10)
 
-        # OPCIÓN 1: DRIVE (Recuperar o nueva nube)
+        # OPCIÓN 1: DRIVE (Recuperar o forzar descarga de la nube)
         self.btn_drive = ctk.CTkButton(
             self, text="Conectar con Google Drive", 
             command=self.controller.handle_drive_connection,
@@ -18,10 +18,17 @@ class WelcomeView(ctk.CTkFrame):
         )
         self.btn_drive.pack(pady=20, padx=50, fill="x")
 
-        # OPCIÓN 2: LOCAL (Privacidad total)
+        # OPCIÓN 2: LOCAL DINÁMICO (Crear o Abrir)
+        # Evaluamos si ya existe una bóveda física en la PC
+        vault_exists = os.path.exists(self.controller.vault_path)
+        
+        # Cambiamos el texto y la función del botón según si existe o no
+        btn_text = "Abrir Bóveda Local" if vault_exists else "Crear Bóveda Local (Solo PC)"
+        btn_cmd = self.controller.app.show_login_view if vault_exists else self.controller.app.show_setup_view
+
         self.btn_local = ctk.CTkButton(
-            self, text="Crear Bóveda Local (Solo PC)", 
-            command=self.controller.app.show_setup_view,
+            self, text=btn_text, 
+            command=btn_cmd,
             fg_color="transparent", border_width=2
         )
         self.btn_local.pack(pady=10, padx=50, fill="x")
@@ -39,10 +46,12 @@ class WelcomeView(ctk.CTkFrame):
         
     def toggle_loading(self, is_loading):
         if is_loading:
-            self.btn_drive.configure(state="disabled", text="Buscando en la nube...")
+            self.btn_drive.configure(state="disabled")
+            self.btn_local.configure(state="disabled")
+            self.btn_readonly.configure(state="disabled")
+            self.loading_label.configure(text="Conectando... por favor espera.")
         else:
-            self.btn_drive.configure(state="normal", text="Conectar con Google Drive")
-
-    def show_message(self, text, msg_type="info"):
-        color = "red" if msg_type == "error" else "white"
-        self.loading_label.configure(text=text, text_color=color)
+            self.btn_drive.configure(state="normal")
+            self.btn_local.configure(state="normal")
+            self.btn_readonly.configure(state="normal")
+            self.loading_label.configure(text="")

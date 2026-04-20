@@ -4,12 +4,19 @@ class DashboardView(ctk.CTkFrame):
     def __init__(self, master, controller, data):
         super().__init__(master)
         self.controller = controller
+        self.vault_data = data
 
         # --- HEADER ---
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=20, pady=10)
         
         ctk.CTkLabel(header, text="Mi Bóveda", font=("Roboto", 22, "bold")).pack(side="left")
+        
+        status_color = "#2c8558" if getattr(controller, 'mode', 'NORMAL') == "SYNC" else "#888888"
+        status_text = "● Sincronizado" if status_color == "#2c8558" else "● Local"
+        
+        self.status_indicator = ctk.CTkLabel(header, text=status_text, text_color=status_color, font=("Roboto", 12))
+        self.status_indicator.pack(side="right", padx=15)
         
         ctk.CTkButton(header, text="Salir", width=60, fg_color="#444444", 
                       command=self.controller.handle_logout).pack(side="right")
@@ -22,18 +29,38 @@ class DashboardView(ctk.CTkFrame):
                                      command=self.toggle_add_form)
         self.btn_add.pack(side="left", padx=10, pady=10)
         
+        # Botón de Sincronización
         self.btn_sync = ctk.CTkButton(self.actions, text="🔄 Sync Drive", 
                                       fg_color="#2c8558", hover_color="#1e5c3d",
                                       command=self.controller.handle_sync_drive)
         self.btn_sync.pack(side="right", padx=10, pady=10)
 
+        # BOTÓN DE DESVINCULAR (Solo aparece si el modo es SYNC)
+        if getattr(self.controller, 'mode', 'NORMAL') == "SYNC":
+            self.btn_unlink = ctk.CTkButton(
+                            self.top_frame, text="🔓 Desvincular Drive", 
+                            command=self.controller.handle_unlink_drive,
+                            fg_color="#a13d3d", hover_color="#7a2e2e"
+                        )
+            self.btn_unlink.pack(side="right", padx=10)
+        else:
+            self.btn_sync = ctk.CTkButton(
+                self.top_frame, text="🔄 Sync Drive", 
+                command=self.controller.handle_sync_drive,
+                fg_color="#2c8558", hover_color="#1e5c3d"
+            )
+            self.btn_sync.pack(side="right", padx=10)
+        # Modo Lectura
         if getattr(self.controller, 'mode', 'NORMAL') == "READ_ONLY":
             self.btn_add.configure(state="disabled", text="🔒 Modo Lectura")
             self.btn_sync.pack_forget()
 
+        # ---> ¡AGREGA ESTAS DOS LÍNEAS AQUÍ! <---
         self.message_label = ctk.CTkLabel(self, text="")
-        self.message_label.pack()
+        self.message_label.pack(pady=5)
 
+        # Luego sigue tu código normal del panel de formulario...
+        self.form_frame = ctk.CTkFrame(self, fg_color="#2b2b2b")
         # --- PANEL DE FORMULARIO OCULTO (NUEVO) ---
         self.form_frame = ctk.CTkFrame(self, fg_color="#2b2b2b")
         # No le hacemos pack() aquí para que empiece oculto
