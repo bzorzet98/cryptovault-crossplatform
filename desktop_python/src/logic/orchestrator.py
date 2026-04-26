@@ -5,216 +5,373 @@ from src.core.crypto import CryptoManager
 from src.core.storage import StorageManager
 from src.core.drive_manager import DriveManager
 
+
 class VaultOrchestrator:
+    """
+    Central brain of CryptoVault.
+
+    State flags:
+        drive_source  — True if the current vault was loaded from / is linked to Drive.
+        read_only     — Edits disabled; toggled from dashboard.
+        master_key    — None when no session is open.
+        mode          — "SYNC" | "NORMAL"  (mirrors drive_source for legacy view reads).
+    """
+
     def __init__(self, app_root):
         self.app = app_root
-        self.crypto = CryptoManager()
+        self.crypto  = CryptoManager()
         self.master_key = None
-        
-        # --- DETECCIÓN DE ENTORNO (EXE vs VS Code) ---
+
+        self.drive_source = False
+        self.read_only    = False
+        self._last_decrypted_data = None
+        self._exit_then_quit      = False
+
+        # ── Environment detection ──────────────────────────────────────────
         if getattr(sys, 'frozen', False):
-            # Si es ejecutable, la raíz es donde está el .exe
             self.base_dir = os.path.dirname(sys.executable)
         else:
-            # CORRECCIÓN: Si es script, subimos exactamente 3 niveles.
-            # orchestrator.py (1) -> logic (2) -> src (3) -> desktop_python
-            self.base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            # logic → src → desktop_python
+            self.base_dir = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
 
-        # --- RUTAS ABSOLUTAS DEFINITIVAS ---
+        # ── Paths ──────────────────────────────────────────────────────────
         self.vault_path = os.path.join(self.base_dir, 'vault.data')
-        self.cred_path = os.path.join(self.base_dir, 'credentials.json')
+        self.cred_path  = os.path.join(self.base_dir, 'credentials.json')
         self.token_path = os.path.join(self.base_dir, 'token.json')
 
-        # Instanciamos los managers inyectándoles las rutas correctas
-        self.drive = DriveManager(credentials_path=self.cred_path, token_path=self.token_path)
-        
-        # Le decimos al StorageManager exactamente dónde guardar
+        # ── Managers ───────────────────────────────────────────────────────
+        self.drive   = DriveManager(credentials_path=self.cred_path,
+                                    token_path=self.token_path)
         self.storage = StorageManager(file_path=self.vault_path)
+        self.mode    = "NORMAL"
 
-        self.mode = "NORMAL"  # MODOS: NORMAL, SYNC, READ_ONLY
-        
-    # --- CICLO DE VIDA Y NAVEGACIÓN ---
+    # ══════════════════════════════════════════════════════════════════════
+    # STARTUP
+    # ══════════════════════════════════════════════════════════════════════
+
     def start_app(self):
-        """Secuencia de arranque: Sincroniza en segundo plano y termina SIEMPRE en Bienvenida."""
-        self.app.show_loading_view()
-        loading_screen = self.app.current_view
-
-        try:
-            loading_screen.update_status("Buscando configuraciones...", 0.2)
-            
-            # 1. Determinar el modo inicial según el token
-            if os.path.exists(self.token_path):
-                self.mode = "SYNC"
-                loading_screen.update_status("Sincronizando con Drive...", 0.5)
-                
-                # Sincronización silenciosa: intentamos bajar la última versión
-                try:
-                    self.drive.authenticate() 
-                    file_id = self.drive.find_file("vault.data")
-                    if file_id:
-                        self.drive.download_file(file_id, self.vault_path)
-                        loading_screen.update_status("Nube actualizada.", 0.8)
-                except Exception as e:
-                    # Si falla el internet, no pasa nada, seguimos con lo que hay local
-                    print(f"Modo Offline: {e}")
-            else:
-                self.mode = "NORMAL"
-                loading_screen.update_status("Modo local.", 0.6)
-
-            # 2. FINALIZACIÓN: Siempre vamos a WelcomeView, pase lo que pase
-            # Le damos 1 segundo para que el usuario vea que terminó de cargar
-            self.app.after(1000, self.app.show_welcome_view)
-
-        except Exception as e:
-            print(f"Error crítico en arranque: {e}")
-            # En caso de error total, también volvemos a la bienvenida por seguridad
-            self.app.show_welcome_view()
-                
-    def handle_drive_connection(self):
-        """Conecta a Drive e intenta recuperar datos."""
-        self.app.current_view.toggle_loading(True)
-        try:
-            self.drive.authenticate()
-            file_id = self.drive.find_file("vault.data")
-            
-            if file_id:
-                self.drive.download_file(file_id, self.storage.get_path())
-                self.mode = "SYNC" # Activamos modo sincronizado
-                self.app.show_login_view()
-            else:
-                # No hay archivo, pero activamos SYNC para que la nueva se suba
-                self.mode = "SYNC"
-                self.app.show_setup_view()
-        except Exception as e:
-            self.app.current_view.show_message(f"Error Drive: {e}", "error")
-        finally:
-            if hasattr(self.app.current_view, 'toggle_loading'):
-                self.app.current_view.toggle_loading(False)
-
-    def handle_drive_logout(self):
-        """Elimina el vínculo con Google Drive de forma silenciosa."""
-        import os
-        try:
-            # 1. Borramos el archivo físico del token
-            if os.path.exists(self.token_path):
-                try:
-                    os.remove(self.token_path)
-                    print("Token eliminado físicamente.")
-                except Exception as e:
-                    print(f"Error al eliminar token: {e}")
-                
-            # 2. Cambiamos el modo de la app ANTES de cualquier otra cosa
-            self.mode = "NORMAL"
-            
-            # 3. IMPORTANTE: No re-instanciamos DriveManager aquí para evitar que abra el navegador.
-            if self.drive:
-                self.drive.service = None 
-
-            if hasattr(self.app.current_view, 'vault_data'):
-                current_data = self.app.current_view.vault_data
-                self.app.show_dashboard_view(current_data)
-                
-            if hasattr(self.app.current_view, 'show_message'):
-                self.app.current_view.show_message("Se ha desvinculado de Google Drive.", "info")
-                    
-        except Exception as e:
-            print(f"Error al desvincular: {e}")
-            
-    def handle_readonly_setup(self):
-        """Activa el modo donde puedes ver pero no tocar."""
-        self.mode = "READ_ONLY"
-        if self.storage.vault_exists():
-            self.app.show_login_view()
-        else:
-            self.app.current_view.show_message("No hay bóveda local para leer.", "error")
-            
-    def handle_setup(self, new_password):
-        """Crea la bóveda inicial vacía cuando no existe."""
-        try:
-            self.master_key = new_password
-            empty_vault = {"user_id": "local_user", "items": []}
-            
-            # Encriptar y guardar
-            encrypted_data = self.crypto.encrypt(empty_vault, self.master_key)
-            self.storage.save_vault(encrypted_data)
-            
-            # Pasar a la vista principal
-            self.app.show_dashboard_view(empty_vault)
-        except Exception as e:
-            self.app.current_view.show_message(f"Error al crear bóveda: {e}", "error")
-
-    def handle_login(self, password):
-        """Intenta abrir la bóveda con la clave proporcionada."""
-        try:
-            encrypted_data = self.storage.load_vault()
-            vault_dict = self.crypto.decrypt(encrypted_data, password)
-            
-            # Si no falla, la clave es correcta
-            self.master_key = password
-            self.app.show_dashboard_view(vault_dict)
-        except Exception:
-            self.app.current_view.show_message("Contraseña incorrecta", "error")
-
-    def handle_logout(self):
-        """Cierra la sesión y vuelve SIEMPRE a la pantalla de bienvenida."""
-        self.master_key = None
-        self.mode = "NORMAL" # Resetear modo por seguridad
         self.app.show_welcome_view()
 
+    # ══════════════════════════════════════════════════════════════════════
+    # WELCOME ─ open local file
+    # ══════════════════════════════════════════════════════════════════════
 
-    # --- GESTIÓN DE DATOS Y SINCRONIZACIÓN ---
+    def handle_load_file(self):
+        """Native file-picker → pick any .data from disk → Login."""
+        from tkinter import filedialog
+
+        filepath = filedialog.askopenfilename(
+            title="Seleccionar bóveda",
+            initialdir=self.base_dir,
+            filetypes=[("Bóvedas CryptoVault", "*.data"), ("Todos los archivos", "*.*")]
+        )
+        if not filepath:
+            return
+
+        self.storage      = StorageManager(file_path=filepath)
+        self.vault_path   = filepath
+        self.drive_source = False
+        self._sync_mode()
+        self.app.show_login_view()
+
+    def handle_create_vault(self):
+        """
+        Let the user choose a name and location for the new vault,
+        then go to Setup to set the master password.
+        """
+        from tkinter import filedialog
+
+        dest = filedialog.asksaveasfilename(
+            title="Crear nueva bóveda",
+            initialdir=self.base_dir,
+            initialfile="mi_boveda.data",
+            defaultextension=".data",
+            filetypes=[("Bóveda CryptoVault", "*.data"), ("Todos los archivos", "*.*")]
+        )
+        if not dest:
+            return  # user cancelled
+
+        self.storage      = StorageManager(file_path=dest)
+        self.vault_path   = dest
+        self.drive_source = False
+        self._sync_mode()
+        self.app.show_setup_view()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # WELCOME ─ open from Drive
+    # ══════════════════════════════════════════════════════════════════════
+
+    def handle_drive_connection(self):
+        """
+        Authenticates with Google Drive and lists available vaults.
+        Shows a picker if files exist; offers Setup if none found.
+        """
+        self.app.show_loading_view()
+        loading = self.app.current_view
+        loading.update_status("Conectando con Google...", 0.3)
+        self.app.update_idletasks()
+
+        try:
+            loading.update_status("Autenticando...", 0.5)
+            self.drive.authenticate()
+            loading.update_status("Buscando bóvedas en Drive...", 0.8)
+            vaults = self.drive.list_vaults()
+            loading.update_status("Listo.", 1.0)
+            self.app.update_idletasks()
+
+        except Exception as e:
+            self.app.show_welcome_view()
+            if hasattr(self.app.current_view, 'show_message'):
+                self.app.current_view.show_message(f"Error de conexión: {e}", "error")
+            return
+
+        if not vaults:
+            # No vaults in Drive — offer to create one that will auto-sync
+            self.drive_source = True
+            self._sync_mode()
+            self.app.show_setup_view()
+        else:
+            self.app.show_drive_select_view(vaults)
+
+    def handle_drive_vault_selected(self, file_id: str, filename: str):
+        """
+        Called by DriveSelectView when user picks a vault.
+        Downloads it locally and goes to Login.
+        """
+        self.app.show_loading_view()
+        loading = self.app.current_view
+        loading.update_status(f"Descargando {filename}...", 0.5)
+        self.app.update_idletasks()
+
+        try:
+            local_path = os.path.join(self.base_dir, filename)
+            self.drive.download_vault(file_id, local_path)
+
+            self.storage      = StorageManager(file_path=local_path)
+            self.vault_path   = local_path
+            self.drive_source = True
+            self._sync_mode()
+
+            loading.update_status("¡Descarga completa!", 1.0)
+            self.app.update_idletasks()
+            self.app.after(500, self.app.show_login_view)
+
+        except Exception as e:
+            self.app.show_welcome_view()
+            if hasattr(self.app.current_view, 'show_message'):
+                self.app.current_view.show_message(f"Error al descargar: {e}", "error")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # LOGIN / SETUP
+    # ══════════════════════════════════════════════════════════════════════
+
+    def handle_login(self, password):
+        try:
+            encrypted_data = self.storage.load_vault()
+            vault_dict     = self.crypto.decrypt(encrypted_data, password)
+            self.master_key             = password
+            self._last_decrypted_data   = vault_dict
+            self.app.show_dashboard_view(vault_dict)
+        except Exception:
+            if hasattr(self.app.current_view, 'show_message'):
+                self.app.current_view.show_message("Contraseña incorrecta", "error")
+
+    def handle_setup(self, password):
+        """Creates empty vault, saves it, and optionally syncs to Drive."""
+        initial_data    = {"items": []}
+        encrypted       = self.crypto.encrypt(initial_data, password)
+        self.storage.save_vault(encrypted)
+        self.master_key           = password
+        self._last_decrypted_data = initial_data
+
+        if self.drive_source:
+            # Auto-upload the new vault so it lives in Drive from the start
+            self._do_sync_upload()
+        else:
+            self.app.show_dashboard_view(initial_data)
+
+    # ══════════════════════════════════════════════════════════════════════
+    # DASHBOARD ─ add credential
+    # ══════════════════════════════════════════════════════════════════════
 
     def handle_save_credential(self, name, username, password):
-        """Recibe los datos del formulario UI, actualiza la bóveda y la guarda cifrada."""
+        """Saves credential locally. Sync happens on exit or manually."""
         try:
-            # 1. Cargar bóveda local actual
-            current_data = self.storage.load_vault()
-            vault_dict = self.crypto.decrypt(current_data, self.master_key)
-            
-            # 2. Actualizar lista de items
-            new_item = {"name": name, "username": username, "password": password}
-            vault_dict['items'].append(new_item)
-            
-            # 3. Encriptar el nuevo paquete
-            encrypted_bundle = self.crypto.encrypt(vault_dict, self.master_key)
-            
-            # 4. Guardar Localmente
-            self.storage.save_vault(encrypted_bundle)
-            
-            # 5. Refrescar la interfaz
-            self.app.current_view.render(vault_dict)
-            self.app.current_view.show_message("Credencial guardada correctamente", "success")
-            
-        except Exception as e:
-            self.app.current_view.show_message(f"Error crítico al guardar: {e}", "error")
+            encrypted  = self.storage.load_vault()
+            vault_dict = self.crypto.decrypt(encrypted, self.master_key)
+            vault_dict['items'].append(
+                {"name": name, "username": username, "password": password}
+            )
+            self.storage.save_vault(self.crypto.encrypt(vault_dict, self.master_key))
+            self._last_decrypted_data = vault_dict
 
-    def handle_sync_drive(self):
-        """Sube la bóveda a Google Drive y actualiza la interfaz al modo SYNC."""
-        if hasattr(self.app.current_view, 'toggle_loading'):
-            self.app.current_view.toggle_loading(True)
-            
-        try:
-            local_vault_path = self.storage.get_path()
-            
-            # 1. Subir a Drive
-            self.drive.upload_vault(local_vault_path)
-            
-            # 2. Actualizar el estado interno de la app a modo nube
-            self.mode = "SYNC"
-            
-            # 3. Recargar el Dashboard para que aparezca el botón "Desvincular"
-            # Volvemos a leer y desencriptar los datos para pasárselos a la vista fresca
-            encrypted_data = self.storage.load_vault()
-            vault_dict = self.crypto.decrypt(encrypted_data, self.master_key)
-            self.app.show_dashboard_view(vault_dict)
-            
-            # 4. Mostrar el mensaje en la nueva vista generada
+            if hasattr(self.app.current_view, 'render'):
+                self.app.current_view.render(vault_dict)
             if hasattr(self.app.current_view, 'show_message'):
-                self.app.current_view.show_message("Sincronizado y vinculado a Drive correctamente.", "success")
-                
+                self.app.current_view.show_message("Credencial guardada.", "success")
+
         except Exception as e:
             if hasattr(self.app.current_view, 'show_message'):
-                self.app.current_view.show_message(f"Error de sincronización: {e}", "error")
+                self.app.current_view.show_message(f"Error al guardar: {e}", "error")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # DASHBOARD ─ sync to Drive  (manual button, only visible when LOCAL)
+    # ══════════════════════════════════════════════════════════════════════
+
+    def handle_sync_drive(self, then_quit=False):
+        """
+        Uploads current vault to Drive.
+        If then_quit=True, closes the app afterwards.
+        """
+        self.app.show_loading_view()
+        loading = self.app.current_view
+        loading.update_status("Conectando con Drive...", 0.2)
+        self.app.update_idletasks()
+
+        try:
+            if not self.drive.is_authenticated():
+                self.drive.authenticate()
+
+            loading.update_status("Subiendo archivo...", 0.6)
+            self.app.update_idletasks()
+            self.drive.upload_vault(self.storage.get_path())
+
+            self.drive_source = True
+            self._sync_mode()
+            loading.update_status("¡Sincronización exitosa!", 1.0)
+            self.app.update_idletasks()
+            time.sleep(0.5)
+
+            if then_quit:
+                self._finish_exit(then_quit=True)
+            else:
+                self.app.show_dashboard_view(self._last_decrypted_data)
+                if hasattr(self.app.current_view, 'show_message'):
+                    self.app.current_view.show_message(
+                        "Bóveda sincronizada con Drive ☁", "success"
+                    )
+
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror("Error de sincronización", str(e))
+            if then_quit:
+                self._finish_exit(then_quit=True)
+            else:
+                self.app.show_dashboard_view(self._last_decrypted_data)
+
+    # ══════════════════════════════════════════════════════════════════════
+    # DASHBOARD ─ export vault
+    # ══════════════════════════════════════════════════════════════════════
+
+    def handle_export_vault(self):
+        """
+        Saves a copy of the current vault to a user-chosen location/name.
+        Works regardless of drive_source.
+        """
+        from tkinter import filedialog
+        import shutil
+
+        current_name = os.path.basename(self.storage.get_path())
+        dest = filedialog.asksaveasfilename(
+            title="Exportar bóveda como...",
+            initialdir=os.path.expanduser("~"),
+            initialfile=current_name,
+            defaultextension=".data",
+            filetypes=[("Bóveda CryptoVault", "*.data"), ("Todos los archivos", "*.*")]
+        )
+        if not dest:
+            return
+
+        try:
+            shutil.copy2(self.storage.get_path(), dest)
+            if hasattr(self.app.current_view, 'show_message'):
+                self.app.current_view.show_message(
+                    f"Exportado: {os.path.basename(dest)}", "success"
+                )
+        except Exception as e:
+            if hasattr(self.app.current_view, 'show_message'):
+                self.app.current_view.show_message(f"Error al exportar: {e}", "error")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # EXIT FLOW
+    # ══════════════════════════════════════════════════════════════════════
+
+    def handle_exit(self, then_quit=False):
+        """
+        ← Menú  (then_quit=False) → cleans session and goes straight to WelcomeView.
+        🔒 Cerrar (then_quit=True)  → goes through ExitView to offer Drive sync before quit.
+        """
+        self._exit_then_quit = then_quit
+
+        if then_quit:
+            if self.master_key:
+                self.app.show_exit_view(mode="QUIT")
+            else:
+                self._finish_exit(then_quit=True)
+        else:
+            # Back to menu: reset session and go directly, no confirmation
+            self._finish_exit(then_quit=False)
+
+    def handle_exit_sync_and_finish(self, then_quit: bool):
+        """Called by ExitView 'Sincronizar y salir'."""
+        self.handle_sync_drive(then_quit=then_quit)
+
+    def handle_save_local_and_finish(self, then_quit: bool):
+        """Called by ExitView 'Guardar local y salir'. Data is already saved."""
+        self._finish_exit(then_quit)
+
+    def handle_cancel_exit(self):
+        """User pressed Cancelar on ExitView — go back to dashboard."""
+        self.app.show_dashboard_view(self._last_decrypted_data)
+
+    def _finish_exit(self, then_quit: bool):
+        """
+        Resets session state and navigates to menu or closes app.
+        Always wipes token.json so Drive requires fresh auth next time
+        (lazy / stateless auth strategy).
+        """
+        self.master_key           = None
+        self.read_only            = False
+        self.drive_source         = False
+        self._last_decrypted_data = None
+        self._sync_mode()
+
+        # ── Lazy auth: delete token so next Drive action re-authenticates ──
+        self._wipe_drive_session()
+
+        if then_quit:
+            self.app.destroy()
+        else:
+            self.app.show_welcome_view()
+
+    def _wipe_drive_session(self):
+        """Removes token.json and clears the in-memory Drive service."""
+        try:
+            if os.path.exists(self.token_path):
+                os.remove(self.token_path)
+        except Exception as e:
+            print(f"Could not remove token.json: {e}")
+        self.drive.service = None  # is_authenticated() will return False
+
+    # ══════════════════════════════════════════════════════════════════════
+    # HELPERS
+    # ══════════════════════════════════════════════════════════════════════
+
+    def _sync_mode(self):
+        """Keep self.mode aligned with drive_source (legacy compatibility)."""
+        self.mode = "SYNC" if self.drive_source else "NORMAL"
+
+    def _do_sync_upload(self):
+        """Internal helper: upload without showing a separate loading screen."""
+        try:
+            if not self.drive.is_authenticated():
+                self.drive.authenticate()
+            self.drive.upload_vault(self.storage.get_path())
+            self.drive_source = True
+            self._sync_mode()
+        except Exception as e:
+            print(f"Auto-sync failed: {e}")
         finally:
-            if hasattr(self.app.current_view, 'toggle_loading'):
-                self.app.current_view.toggle_loading(False)
+            self.app.show_dashboard_view(self._last_decrypted_data)
