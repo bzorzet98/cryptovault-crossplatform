@@ -50,7 +50,50 @@ class VaultOrchestrator:
                                     token_path=self.token_path)
         self.storage = StorageManager(file_path=self.vault_path)
         self.mode    = "NORMAL"
+        self._auto_lock_after_ms  = 2 * 60 * 1000   # 5 minutes — change to taste
+        self._auto_lock_job       = None
+        self._clipboard_clear_job = None
+    
+    # ══════════════════════════════════════════════════════════════════════
+    # AUTO-LOCK
+    # ══════════════════════════════════════════════════════════════════════
 
+    def reset_auto_lock(self):
+        """Call this on any user interaction inside the dashboard."""
+        if self._auto_lock_job:
+            self.app.after_cancel(self._auto_lock_job)
+        if self.master_key:
+            self._auto_lock_job = self.app.after(
+                self._auto_lock_after_ms, self._do_auto_lock
+            )
+
+    def _do_auto_lock(self):
+        """Called when inactivity timer fires. Returns to welcome silently."""
+        if self.master_key:
+            self._finish_exit(then_quit=False)
+
+    # ══════════════════════════════════════════════════════════════════════
+    # CLIPBOARD CLEAR
+    # ══════════════════════════════════════════════════════════════════════
+
+    def schedule_clipboard_clear(self, delay_ms: int = 30_000):
+        """
+        Clears the clipboard after delay_ms (default 30 s).
+        Call this every time something is copied to clipboard.
+        """
+        if self._clipboard_clear_job:
+            self.app.after_cancel(self._clipboard_clear_job)
+        self._clipboard_clear_job = self.app.after(
+            delay_ms, self._do_clear_clipboard
+        )
+
+    def _do_clear_clipboard(self):
+        try:
+            self.app.clipboard_clear()
+        except Exception:
+            pass
+        self._clipboard_clear_job = None
+        
     # ══════════════════════════════════════════════════════════════════════
     # STARTUP
     # ══════════════════════════════════════════════════════════════════════

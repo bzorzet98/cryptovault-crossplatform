@@ -132,7 +132,7 @@ class DashboardView(ctk.CTkFrame):
         self._rename_msg.pack(anchor="w", pady=(4, 0))
 
     def _build_tab_bar(self):
-        bar_outer = ctk.CTkFrame(self, fg_color="#1a1a1a", height=48)
+        bar_outer = ctk.CTkFrame(self, fg_color="#1a1a1a", height=54)
         bar_outer.pack(fill="x")
         bar_outer.pack_propagate(False)
 
@@ -187,9 +187,11 @@ class DashboardView(ctk.CTkFrame):
             self._btn_sync.pack(side="left")
 
     def _add_tab_button(self, tab: dict):
+        count = len(tab.get("credentials", []))
+        label = f"{tab['icon']}  {tab['name']}  ({count})"
         btn = ctk.CTkButton(
             self._tab_bar_inner,
-            text=f"{tab['icon']}  {tab['name']}",
+            text=label,
             height=32,
             fg_color=_TAB_OFF, hover_color="#383838",
             text_color="#cccccc", font=("Segoe UI Emoji", 12),
@@ -204,8 +206,29 @@ class DashboardView(ctk.CTkFrame):
         self._msg_label.pack(pady=(4, 0))
 
     def _build_body(self):
+        # ── Search bar ────────────────────────────────────────────────────
+        search_row = ctk.CTkFrame(self, fg_color="transparent")
+        search_row.pack(fill="x", padx=16, pady=(4, 0))
+
+        self._search_var = ctk.StringVar()
+        self._search_var.trace_add("write", lambda *_: self._on_search_change())
+
+        ctk.CTkEntry(
+            search_row,
+            textvariable=self._search_var,
+            placeholder_text="🔍  Buscar credencial...",
+            height=32
+        ).pack(fill="x")
+
+        # ── Scroll body ───────────────────────────────────────────────────
         self._body = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        self._body.pack(fill="both", expand=True, padx=16, pady=(6, 0))
+        self._body.pack(fill="both", expand=True, padx=16, pady=(4, 0))
+
+    def _on_search_change(self):
+        """Re-render active tab filtered by search query."""
+        tab = self._active_tab()
+        if tab:
+            self._render_tab(tab)
 
     def _build_footer(self):
         self._footer = ctk.CTkFrame(self, fg_color="transparent")
@@ -253,6 +276,9 @@ class DashboardView(ctk.CTkFrame):
                 w.destroy()
 
         credentials = tab.get("credentials", [])
+        query = self._search_var.get().strip().lower()
+        if query:
+            credentials = [c for c in credentials if query in c["name"].lower()]
         is_del      = (tab["id"] == DELETED_TAB_ID)
         is_ro       = getattr(self.controller, 'read_only', False)
 
@@ -274,6 +300,8 @@ class DashboardView(ctk.CTkFrame):
                     tab=tab,
                     on_save=lambda c, tid=tab["id"]: self._on_credential_updated(tid, c),
                     on_delete=lambda cid, tid=tab["id"]: self._on_credential_deleted(tid, cid),
+                    verify_master=lambda pw: pw == self.controller.master_key,
+                    on_copy=self.controller.schedule_clipboard_clear,
                     read_only=is_ro
                 )
 

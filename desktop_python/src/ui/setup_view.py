@@ -75,8 +75,8 @@ class SetupView(ctk.CTkFrame):
     def on_submit(self):
         p1 = self.password_entry.get()
         p2 = self.confirm_entry.get()
-        if len(p1) < 4:
-            self.show_message("La clave debe tener al menos 4 caracteres.", "error")
+        if len(p1) < 10:
+            self.show_message("La clave debe tener al menos 10 caracteres.", "error")
         elif p1 != p2:
             self.show_message("Las claves no coinciden.", "error")
         else:

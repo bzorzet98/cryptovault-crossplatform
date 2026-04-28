@@ -31,7 +31,7 @@ class CredentialCard(ctk.CTkFrame):
     """
 
     def __init__(self, master, credential: dict, tab: dict,
-                 on_save, on_delete, read_only: bool = False):
+                 on_save, on_delete, verify_master, on_copy=None,read_only: bool = False):
         super().__init__(master, fg_color=_BG, corner_radius=10)
         self.pack(fill="x", pady=5, padx=2)
 
@@ -40,6 +40,8 @@ class CredentialCard(ctk.CTkFrame):
         self.on_save    = on_save
         self.on_delete  = on_delete
         self.read_only  = read_only
+        self.verify_master = verify_master
+        self.on_copy       = on_copy 
 
         self._expanded  = False
         self._edit_mode = False
@@ -360,6 +362,8 @@ class CredentialCard(ctk.CTkFrame):
                     return v
         return ""
 
-    def _copy(self, text: str):
+    def _copy(self, text):
         self.clipboard_clear()
         self.clipboard_append(text)
+        if self.on_copy:
+            self.on_copy()   # triggers 30s clipboard clear
