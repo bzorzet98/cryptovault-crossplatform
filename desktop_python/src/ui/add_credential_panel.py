@@ -7,12 +7,17 @@ Includes an integrated password generator for secret fields.
 
 import customtkinter as ctk
 from src.ui.password_generator import PasswordGeneratorWidget
+from src.ui.theme import load_icon
+import src.ui.theme as theme
 
 _BG       = "#222222"
-_ACCENT   = "#2c8558"
+_ACCENT   = theme.c("accent")
 _GREY     = "#888888"
-_LABEL_FG = "#aaaaaa"
-_RED      = "#a33030"
+_LABEL_FG = theme.c("text_secondary")
+_RED      = theme.c("danger")
+
+import os
+from PIL import Image
 
 
 class AddCredentialPanel(ctk.CTkFrame):
@@ -26,21 +31,23 @@ class AddCredentialPanel(ctk.CTkFrame):
         self._extra_entries  = []
         self._gen_widget     = None
 
+        # Icons 
+        self._icon_add   = load_icon("add.png", size=(20,20))
+        self._icon_factory = load_icon("factory.png", size=(20,20))
+        self._icon_save = load_icon("save.png", size=(20,20))
+        self._icon_cancel = load_icon("cancel.png", size=(20,20))
+        self._icon_viz_off = load_icon("visibility_off.png", size=(20,20))
+        self._icon_viz_on = load_icon("visibility.png", size=(20,20))
+
         # ── Title bar ─────────────────────────────────────────────────────
         title_row = ctk.CTkFrame(self, fg_color="transparent")
         title_row.pack(fill="x", padx=16, pady=(12, 6))
 
         ctk.CTkLabel(
             title_row,
-            text=f"Nueva credencial  {tab['icon']}  {tab['name']}",
-            font=("Roboto", 15, "bold")
+            text=f"Nueva credencial | {tab['name']}",
+            font=theme.font(15, "bold")
         ).pack(side="left")
-
-        ctk.CTkButton(
-            title_row, text="✕", width=28, height=28,
-            fg_color="transparent", hover_color="#333333",
-            command=on_cancel
-        ).pack(side="right")
 
         # ── Scrollable body ───────────────────────────────────────────────
         self._body = ctk.CTkScrollableFrame(self, fg_color="transparent", height=260)
@@ -64,9 +71,12 @@ class AddCredentialPanel(ctk.CTkFrame):
 
         left = ctk.CTkFrame(footer, fg_color="transparent")
         left.pack(side="left")
-
+        
+            
         ctk.CTkButton(
-            left, text="＋ Campo extra",
+            left, text="Campo extra",
+            image=self._icon_add,
+            compound="left",
             height=30, width=130,
             fg_color="transparent", border_width=1,
             border_color="#444444", text_color=_GREY,
@@ -75,10 +85,12 @@ class AddCredentialPanel(ctk.CTkFrame):
         ).pack(side="left", padx=(0, 8))
 
         ctk.CTkButton(
-            left, text="🔑 Generar",
+            left, text="Generar",
+            image=self._icon_factory,
+            compound="left",
             height=30, width=100,
             fg_color="transparent", border_width=1,
-            border_color="#2c6040", text_color="#2c8558",
+            border_color="#2c6040", text_color=theme.c("accent"),
             hover_color="#1a2a20",
             command=self._toggle_generator
         ).pack(side="left")
@@ -87,18 +99,22 @@ class AddCredentialPanel(ctk.CTkFrame):
         right.pack(side="right")
 
         ctk.CTkButton(
-            right, text="Guardar", width=100, height=34,
-            fg_color=_ACCENT, hover_color="#1e5c3d",
+            right, text="Guardar", 
+            image=self._icon_save,
+            compound="left",width=100, height=34,
+            fg_color=_ACCENT, hover_color=theme.c("accent_hover"),
             command=self._submit
         ).pack(side="left", padx=(0, 8))
 
         ctk.CTkButton(
-            right, text="Cancelar", width=90, height=34,
-            fg_color="#444444", hover_color="#333333",
+            right, text="Cancelar", 
+            image=self._icon_cancel,
+            compound="left",width=90, height=34,
+            fg_color="#444444", hover_color=theme.c("hover"),
             command=on_cancel
         ).pack(side="left")
 
-        self._msg = ctk.CTkLabel(self, text="", font=("Roboto", 11))
+        self._msg = ctk.CTkLabel(self, text="", font=theme.font(11))
         self._msg.pack(pady=(0, 6))
 
     # ── Field rows ────────────────────────────────────────────────────────
@@ -109,7 +125,7 @@ class AddCredentialPanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             row, text=f"{label}{' *' if required else ''}:",
-            font=("Roboto", 12), text_color=_LABEL_FG,
+            font=theme.font(12), text_color=_LABEL_FG,
             width=160, anchor="w"
         ).pack(side="left")
 
@@ -119,14 +135,28 @@ class AddCredentialPanel(ctk.CTkFrame):
 
         if secret:
             _vis = {"on": False}
-            def _toggle(e=entry, v=_vis):
+
+            btn = ctk.CTkButton(
+                row,
+                text="",
+                image=self._icon_viz_off,
+                width=28,
+                height=28,
+                fg_color=theme.c("hover"),
+                hover_color="#444444"
+            )
+            btn.pack(side="left")
+
+            def _toggle(e=entry, v=_vis, b=btn):
                 v["on"] = not v["on"]
+
                 e.configure(show="" if v["on"] else "*")
-            ctk.CTkButton(
-                row, text="👁", width=28, height=28,
-                fg_color="#333333", hover_color="#444444",
-                command=_toggle
-            ).pack(side="left")
+
+                b.configure(
+                    image=self._icon_viz_on if v["on"] else self._icon_viz_off
+                )
+
+            btn.configure(command=_toggle)
 
     def _add_extra_row(self, label="", value="", secret=False):
         row = ctk.CTkFrame(self._extra_container, fg_color="transparent")
@@ -142,11 +172,21 @@ class AddCredentialPanel(ctk.CTkFrame):
         value_e.pack(side="left", padx=(0, 6))
 
         secret_var = ctk.BooleanVar(value=secret)
-        ctk.CTkCheckBox(row, text="Secreto", variable=secret_var,
-                        width=70, font=("Roboto", 11)).pack(side="left", padx=(0, 6))
+        ctk.CTkCheckBox(
+            row,
+            text="Secreto",
+            variable=secret_var,
+            width=90,
+            font=theme.font(11),
+            checkbox_width=18,
+            checkbox_height=18,
+            corner_radius=4
+        ).pack(side="left", padx=(0, 6))
 
         ctk.CTkButton(
-            row, text="✕", width=26, height=26,
+            row, text="", 
+            image=self._icon_cancel,
+            width=26, height=26,
             fg_color=_RED, hover_color="#7a2020",
             command=lambda r=row: r.destroy()
         ).pack(side="left")

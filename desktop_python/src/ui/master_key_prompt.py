@@ -14,11 +14,15 @@ Usage:
 """
 
 import customtkinter as ctk
+from src.ui.theme import load_icon
 
-_BG     = "#1e1e1e"
-_ACCENT = "#2c8558"
-_RED    = "#a33030"
+_BG     = theme.c("bg2")
+_ACCENT = theme.c("accent")
+_RED    = theme.c("danger")
 
+import os
+from PIL import ImageChops
+import src.ui.theme as theme
 
 class MasterKeyPrompt(ctk.CTkToplevel):
     """
@@ -48,14 +52,16 @@ class MasterKeyPrompt(ctk.CTkToplevel):
 
         # ── Content ───────────────────────────────────────────────────────
         ctk.CTkLabel(
-            self, text="🔐  Verificación requerida",
-            font=("Roboto", 16, "bold")
+            self, text="Verificación requerida",
+            image=load_icon("lock_icon.png", size=(18,18)),
+            compound="left",
+            font=theme.font(16, "bold")
         ).pack(pady=(24, 4))
 
         ctk.CTkLabel(
             self,
             text="Ingresá tu Master Password\npara ver los datos cifrados.",
-            font=("Roboto", 12), text_color="#888888", justify="center"
+            font=theme.font(12), text_color="#888888", justify="center"
         ).pack(pady=(0, 16))
 
         # Password row
@@ -70,15 +76,20 @@ class MasterKeyPrompt(ctk.CTkToplevel):
         self._entry.bind("<Return>", lambda e: self._submit())
         self._entry.focus_set()
 
+        self._icon_vis    = load_icon("visibility.png", size=(20,20))
+        self._icon_vis_off = load_icon("visibility_off.png", size=(20,20))
+        
         self._eye_btn = ctk.CTkButton(
-            pw_row, text="👁", width=36, height=36,
-            fg_color="#333333", hover_color="#444444",
+            pw_row, text="",
+            image=self._icon_vis_off,
+            compound="left", width=36, height=36,
+            fg_color=theme.c("hover"), hover_color="#444444",
             command=self._toggle_visibility
         )
         self._eye_btn.pack(side="left")
 
         # Error message
-        self._msg = ctk.CTkLabel(self, text="", font=("Roboto", 11))
+        self._msg = ctk.CTkLabel(self, text="", font=theme.font(11))
         self._msg.pack(pady=(0, 10))
 
         # Buttons
@@ -87,13 +98,13 @@ class MasterKeyPrompt(ctk.CTkToplevel):
 
         ctk.CTkButton(
             btn_row, text="Confirmar", width=110, height=34,
-            fg_color=_ACCENT, hover_color="#1e5c3d",
+            fg_color=_ACCENT, hover_color=theme.c("accent_hover"),
             command=self._submit
         ).pack(side="left", padx=(0, 8))
 
         ctk.CTkButton(
             btn_row, text="Cancelar", width=90, height=34,
-            fg_color="#444444", hover_color="#333333",
+            fg_color="#444444", hover_color=theme.c("hover"),
             command=self._cancel
         ).pack(side="left")
 
@@ -104,8 +115,9 @@ class MasterKeyPrompt(ctk.CTkToplevel):
     def _toggle_visibility(self):
         self._pw_visible = not self._pw_visible
         self._entry.configure(show="" if self._pw_visible else "*")
-        self._eye_btn.configure(text="🙈" if self._pw_visible else "👁")
-
+        icon = self._icon_vis if self._pw_visible else self._icon_vis_off
+        self._eye_btn.configure(image=icon, text="")
+    
     def _submit(self):
         pw = self._entry.get()
         if self.verify(pw):

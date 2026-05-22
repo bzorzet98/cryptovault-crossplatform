@@ -1,5 +1,8 @@
 import customtkinter as ctk
-
+import os
+from PIL import Image
+from src.ui.theme import load_icon
+import src.ui.theme as theme
 
 class LoginView(ctk.CTkFrame):
     def __init__(self, master, controller):
@@ -10,20 +13,27 @@ class LoginView(ctk.CTkFrame):
         # ── Back button ───────────────────────────────────────────────────
         back_bar = ctk.CTkFrame(self, fg_color="transparent")
         back_bar.pack(fill="x", padx=10, pady=(10, 0))
-
+        
+        self._icon_back = load_icon("back_arrow.png", size=(16,16))
+        self._icon_lock = load_icon("lock_icon.png", size=(28,28))
+        
         ctk.CTkButton(
-            back_bar, text="← Volver",
+            back_bar, text="Volver",
+            image=self._icon_back,
+            compound="left",
             width=90, height=28,
             fg_color="transparent", border_width=1,
-            border_color="#555555", text_color="#aaaaaa",
-            hover_color="#333333",
+            border_color="#555555", text_color=theme.c("text_secondary"),
+            hover_color=theme.c("hover"),
             command=self.controller.app.show_welcome_view
         ).pack(side="left")
 
         # ── Main content ──────────────────────────────────────────────────
         ctk.CTkLabel(
-            self, text="🔐 CryptoVault",
-            font=("Roboto", 28, "bold")
+            self, text="CryptoVault",
+            image=self._icon_lock,
+            compound="left",
+            font=theme.font(28, "bold")
         ).pack(pady=30)
 
         # Password row: entry + show/hide button side by side
@@ -37,10 +47,14 @@ class LoginView(ctk.CTkFrame):
         self.pass_entry.pack(side="left", padx=(0, 6))
         self.pass_entry.bind("<Return>", lambda e: self.on_submit())
 
+        self._icon_vis    = load_icon("visibility.png", size=(20,20))
+        self._icon_vis_off = load_icon("visibility_off.png", size=(20,20))
+        
         self._toggle_btn = ctk.CTkButton(
-            pw_row, text="👁",
+            pw_row, text="",
+            image=self._icon_vis_off,
             width=36, height=36,
-            fg_color="#333333", hover_color="#444444",
+            fg_color=theme.c("hover"), hover_color="#444444",
             command=self._toggle_visibility
         )
         self._toggle_btn.pack(side="left")
@@ -56,8 +70,9 @@ class LoginView(ctk.CTkFrame):
     def _toggle_visibility(self):
         self._pw_visible = not self._pw_visible
         self.pass_entry.configure(show="" if self._pw_visible else "*")
-        self._toggle_btn.configure(text="🙈" if self._pw_visible else "👁")
-
+        icon = self._icon_vis if self._pw_visible else self._icon_vis_off
+        self._toggle_btn.configure(image=icon, text="")
+        
     def on_submit(self):
         password = self.pass_entry.get()
         if password:
@@ -66,5 +81,5 @@ class LoginView(ctk.CTkFrame):
             self.show_message("Ingresa tu contraseña", "error")
 
     def show_message(self, text, msg_type="info"):
-        color = "#ff4d4d" if msg_type == "error" else "#2c8558"
+        color = "#ff4d4d" if msg_type == "error" else theme.c("accent")
         self.message_label.configure(text=text, text_color=color)

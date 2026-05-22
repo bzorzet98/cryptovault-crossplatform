@@ -9,14 +9,17 @@ Edit mode:  inline inputs for every field, extra fields editable, save/cancel
 """
 
 import customtkinter as ctk
+import os
+from PIL import Image
+from src.ui.theme import load_icon
+import src.ui.theme as theme
 
-_BG       = "#252525"
-_BG_FIELD = "#1e1e1e"
-_ACCENT   = "#2c8558"
-_RED      = "#a33030"
+_BG       = theme.c("card")
+_BG_FIELD = theme.c("bg2")
+_ACCENT   = theme.c("accent")
+_RED      = theme.c("danger")
 _GREY     = "#888888"
-_LABEL_FG = "#aaaaaa"
-
+_LABEL_FG = theme.c("text_secondary")
 
 class CredentialCard(ctk.CTkFrame):
     """
@@ -33,6 +36,18 @@ class CredentialCard(ctk.CTkFrame):
     def __init__(self, master, credential: dict, tab: dict,
                  on_save, on_delete, verify_master, on_copy=None,read_only: bool = False):
         super().__init__(master, fg_color=_BG, corner_radius=10)
+        
+        # Icons
+        self._icon_viz_on  = load_icon("visibility.png", size=(14,14))
+        self._icon_viz_off = load_icon("visibility_off.png", size=(14,14))
+        self._icon_copy    = load_icon("copy_white.png", size=(14,14))
+        self._icon_trash  = load_icon("delete_trashbucket.png", size=(14,14))
+        self._icon_edit   = load_icon("edit.png", size=(14,14))
+        self._icon_edit_off = load_icon("edit_off.png", size=(14,14))   
+        self._icon_add    = load_icon("add.png", size=(14,14))
+        self._icon_save   = load_icon("save.png", size=(14,14))
+        self._icon_cancel = load_icon("cancel.png", size=(14,14))
+        
         self.pack(fill="x", pady=5, padx=2)
 
         self.credential = credential
@@ -70,7 +85,7 @@ class CredentialCard(ctk.CTkFrame):
         ctk.CTkLabel(
             self._collapsed,
             text=self.credential["name"],
-            font=("Roboto", 14, "bold"), anchor="w"
+            font=theme.font(14, "bold"), anchor="w"
         ).pack(side="left")
 
         preview = self._get_preview()
@@ -78,32 +93,37 @@ class CredentialCard(ctk.CTkFrame):
             ctk.CTkLabel(
                 self._collapsed,
                 text=f"  ·  {preview}",
-                font=("Roboto", 12), text_color=_GREY, anchor="w"
+                font=theme.font(12), text_color=_GREY, anchor="w"
             ).pack(side="left")
 
         btn_frame = ctk.CTkFrame(self._collapsed, fg_color="transparent")
         btn_frame.pack(side="right")
 
         self._btn_expand = ctk.CTkButton(
-            btn_frame, text="👁 Ver", width=60, height=28,
-            fg_color="#333333", hover_color="#3f3f3f",
-            font=("Roboto", 12),
+            btn_frame, text="Ver", width=70, height=28,
+            image=self._icon_viz_on,
+            compound="left",
+            fg_color=theme.c("hover"), hover_color="#3f3f3f",
+            font=theme.font(12),
             command=self._toggle_expand
         )
         self._btn_expand.pack(side="left", padx=(0, 6))
 
         if not self.read_only:
+            
             ctk.CTkButton(
-                btn_frame, text="✏", width=32, height=28,
-                fg_color="#333333", hover_color="#3f3f3f",
-                font=("Roboto", 14),
+                btn_frame, text="", width=32, height=28,
+                image=self._icon_edit,
+                fg_color=theme.c("hover"), hover_color="#3f3f3f",
+                font=theme.font(14),
                 command=self._enter_edit_mode
             ).pack(side="left", padx=(0, 4))
 
             ctk.CTkButton(
-                btn_frame, text="🗑", width=32, height=28,
+                btn_frame, text="", width=32, height=28,
+                image=self._icon_trash,
                 fg_color=_RED, hover_color="#7a2020",
-                font=("Roboto", 14),
+                font=theme.font(14),
                 command=lambda: self.on_delete(self.credential["id"])
             ).pack(side="left")
 
@@ -129,14 +149,14 @@ class CredentialCard(ctk.CTkFrame):
 
             ctk.CTkLabel(
                 row, text=f"{label}:",
-                font=("Roboto", 12), text_color=_LABEL_FG,
+                font=theme.font(12), text_color=_LABEL_FG,
                 width=170, anchor="w"
             ).pack(side="left")
 
             display_var = ctk.StringVar(value=("••••••••" if secret else value))
             ctk.CTkLabel(
                 row, textvariable=display_var,
-                font=("Roboto", 12), anchor="w"
+                font=theme.font(12), anchor="w"
             ).pack(side="left", fill="x", expand=True)
 
             self._field_rows[key] = {
@@ -146,16 +166,17 @@ class CredentialCard(ctk.CTkFrame):
 
             # Copy
             ctk.CTkButton(
-                row, text="⎘", width=28, height=24,
-                fg_color="#333333", hover_color="#3f3f3f",
+                row, text="", width=28, height=24,
+                image=self._icon_copy,
+                fg_color=theme.c("hover"), hover_color="#3f3f3f",
                 command=lambda v=value: self._copy(v)
             ).pack(side="right", padx=(4, 0))
-
             # Show/hide (only secret fields)
             if secret:
                 ctk.CTkButton(
-                    row, text="👁", width=28, height=24,
-                    fg_color="#333333", hover_color="#3f3f3f",
+                    row, text="", width=28, height=24,
+                    image=self._icon_viz_off,
+                    fg_color=theme.c("hover"), hover_color="#3f3f3f",
                     command=lambda k=key: self._toggle_visibility(k)
                 ).pack(side="right", padx=(4, 0))
 
@@ -193,7 +214,9 @@ class CredentialCard(ctk.CTkFrame):
 
         # + Add extra field
         ctk.CTkButton(
-            self._edit_panel, text="＋ Agregar campo extra",
+            self._edit_panel, text="Agregar campo extra",
+            image=self._icon_add,
+            compound="left",
             height=28, width=180,
             fg_color="transparent", border_width=1,
             border_color="#444444", text_color=_GREY, hover_color="#2a2a2a",
@@ -205,14 +228,20 @@ class CredentialCard(ctk.CTkFrame):
         btn_row.pack(anchor="e", padx=14, pady=(4, 10))
 
         ctk.CTkButton(
-            btn_row, text="Guardar", width=90,
-            fg_color=_ACCENT, hover_color="#1e5c3d",
+            btn_row, text="Guardar", 
+            image=self._icon_save,
+            compound="left",
+            width=90,
+            fg_color=_ACCENT, hover_color=theme.c("accent_hover"),
             command=self._save_edit
         ).pack(side="left", padx=(0, 8))
 
         ctk.CTkButton(
-            btn_row, text="Cancelar", width=80,
-            fg_color="#444444", hover_color="#333333",
+            btn_row, text="Cancelar", 
+            image=self._icon_cancel,
+            compound="left",
+            width=80,
+            fg_color="#444444", hover_color=theme.c("hover"),
             command=self._cancel_edit
         ).pack(side="left")
 
@@ -223,7 +252,7 @@ class CredentialCard(ctk.CTkFrame):
 
         ctk.CTkLabel(
             row, text=f"{label}:",
-            font=("Roboto", 12), text_color=_LABEL_FG,
+            font=theme.font(12), text_color=_LABEL_FG,
             width=150, anchor="w"
         ).pack(side="left")
 
@@ -248,11 +277,13 @@ class CredentialCard(ctk.CTkFrame):
         secret_var = ctk.BooleanVar(value=secret)
         ctk.CTkCheckBox(
             row, text="Secreto", variable=secret_var,
-            width=70, font=("Roboto", 11)
+            width=70, font=theme.font(11)
         ).pack(side="left", padx=(0, 6))
 
         ctk.CTkButton(
-            row, text="✕", width=26, height=26,
+            row, text=" ",
+            image = self._icon_cancel,
+            width=26, height=26,
             fg_color=_RED, hover_color="#7a2020",
             command=lambda r=row: r.destroy()
         ).pack(side="left")
@@ -274,10 +305,16 @@ class CredentialCard(ctk.CTkFrame):
         self._expanded = not self._expanded
         if self._expanded:
             self._expanded_panel.pack(fill="x", padx=10, pady=(0, 10))
-            self._btn_expand.configure(text="▲ Ocultar")
+            self._btn_expand.configure(
+                text="Ocultar",
+                image=self._icon_viz_off
+            )
         else:
             self._expanded_panel.pack_forget()
-            self._btn_expand.configure(text="👁 Ver")
+            self._btn_expand.configure(
+                text="Ver",
+                image=self._icon_viz_on
+            )
 
     def _toggle_visibility(self, key: str):
         info = self._field_rows.get(key)
@@ -291,7 +328,9 @@ class CredentialCard(ctk.CTkFrame):
         # Collapse view panel if open
         self._expanded_panel.pack_forget()
         self._expanded = False
-        self._btn_expand.configure(text="👁 Ver")
+        self._btn_expand.configure(text=" Ver",
+                                   image=self._icon_viz_on,
+                                   )
         # Rebuild and show edit panel
         self._render_edit()
         self._edit_panel.pack(fill="x", padx=10, pady=(0, 10))
@@ -348,11 +387,43 @@ class CredentialCard(ctk.CTkFrame):
     # ══════════════════════════════════════════════════════════════════════
 
     def _all_field_defs(self) -> list:
-        """default_fields from tab only — extra_fields are handled separately."""
-        return list(self.tab.get("default_fields", []))
+        """Return all standard + extra field definitions."""
 
+        fields = []
+
+        # Default fields from tab schema
+        for f in self.tab.get("default_fields", []):
+
+            fields.append({
+                "key": f["key"],
+                "label": f["label"],
+                "secret": f.get("secret", False)
+            })
+
+        # Dynamic extra fields
+        for extra in self.credential.get("extra_fields", []):
+
+            fields.append({
+                "key": extra["key"],
+                "label": extra["label"],
+                "secret": extra.get("secret", False)
+            })
+
+        return fields
+    
     def _get_value(self, key: str) -> str:
-        return self.credential.get("fields", {}).get(key, "")
+
+        # standard fields
+        if key in self.credential.get("fields", {}):
+            return self.credential["fields"].get(key, "")
+
+        # extra fields
+        for extra in self.credential.get("extra_fields", []):
+
+            if extra.get("key") == key:
+                return extra.get("value", "")
+
+        return ""
 
     def _get_preview(self) -> str:
         for fd in self.tab.get("default_fields", []):

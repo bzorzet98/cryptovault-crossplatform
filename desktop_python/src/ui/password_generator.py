@@ -12,11 +12,15 @@ import random
 import string
 import customtkinter as ctk
 
+import os
+from PIL import Image
+from src.ui.theme import load_icon
+import src.ui.theme as theme
+
+
 _BG     = "#1a1a1a"
-_ACCENT = "#2c8558"
+_ACCENT = theme.c("accent")
 _GREY   = "#888888"
-
-
 # ── Pure utility ─────────────────────────────────────────────────────────────
 
 def generate_password(
@@ -77,7 +81,7 @@ class PasswordGeneratorWidget(ctk.CTkFrame):
         opts.pack(fill="x", padx=10, pady=(8, 4))
 
         ctk.CTkLabel(opts, text="Generar contraseña:",
-                     font=("Roboto", 12), text_color=_GREY).pack(side="left", padx=(0, 10))
+                     font=theme.font(12), text_color=_GREY).pack(side="left", padx=(0, 10))
 
         self._upper_var   = ctk.BooleanVar(value=True)
         self._lower_var   = ctk.BooleanVar(value=True)
@@ -88,15 +92,15 @@ class PasswordGeneratorWidget(ctk.CTkFrame):
         for text, var in [("A-Z", self._upper_var), ("a-z", self._lower_var),
                           ("0-9", self._digits_var), ("!@#", self._symbols_var)]:
             ctk.CTkCheckBox(opts, text=text, variable=var,
-                            width=55, font=("Roboto", 11),
+                            width=55, font=theme.font(11),
                             command=self._regenerate).pack(side="left", padx=2)
 
         # Length slider
-        ctk.CTkLabel(opts, text="Largo:", font=("Roboto", 11),
+        ctk.CTkLabel(opts, text="Largo:", font=theme.font(11),
                      text_color=_GREY).pack(side="left", padx=(8, 2))
 
         self._len_label = ctk.CTkLabel(opts, text="16",
-                                       font=("Roboto", 11, "bold"), width=24)
+                                       font=theme.font(11, "bold"), width=24)
         self._len_label.pack(side="left")
 
         ctk.CTkSlider(
@@ -112,21 +116,23 @@ class PasswordGeneratorWidget(ctk.CTkFrame):
         self._pw_var = ctk.StringVar()
         self._pw_entry = ctk.CTkEntry(
             out_row, textvariable=self._pw_var,
-            width=220, height=32, font=("Roboto", 12),
+            width=220, height=32, font=theme.font(12),
             state="normal"
         )
         self._pw_entry.pack(side="left", padx=(0, 6))
 
         ctk.CTkButton(
-            out_row, text="↻", width=32, height=32,
-            fg_color="#333333", hover_color="#444444",
-            font=("Roboto", 16),
+            out_row, text="", width=32, height=32,
+            image=load_icon("reload.png", size=(16,16)),
+            fg_color=theme.c("hover"), hover_color="#444444",
             command=self._regenerate
         ).pack(side="left", padx=(0, 4))
 
         ctk.CTkButton(
-            out_row, text="Usar", width=60, height=32,
-            fg_color=_ACCENT, hover_color="#1e5c3d",
+            out_row, text="  Usar", width=70, height=32,
+            image=load_icon("copy_white.png", size=(14,14)),
+            compound="left",
+            fg_color=_ACCENT, hover_color=theme.c("accent_hover"),
             command=self._use
         ).pack(side="left")
 
@@ -151,4 +157,13 @@ class PasswordGeneratorWidget(ctk.CTkFrame):
         self._pw_var.set(pw)
 
     def _use(self):
-        self.on_use(self._pw_var.get())
+
+        pw = self._pw_var.get()
+
+        # copiar
+        self.clipboard_clear()
+        self.clipboard_append(pw)
+
+        # enviar al caller
+        if self.on_use:
+            self.on_use(pw)

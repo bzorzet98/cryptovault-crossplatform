@@ -10,7 +10,6 @@ Vault JSON structure:
         {
             "id": str (uuid4),
             "name": str,
-            "icon": str (emoji),
             "is_system": bool,
             "default_fields": [
                 {"key": str, "label": str, "secret": bool}
@@ -35,12 +34,6 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
-# ── Emoji palette offered in the icon picker ──────────────────────────────────
-ICON_OPTIONS = [
-    "🏦", "📧", "🎬", "🛡️", "🗑️", "💼", "🎮", "🛒", "🏥", "📚",
-    "✈️",  "🏠", "💳", "🔑", "🌐", "📱", "💡", "🎵", "📷", "🤖",
-    "🧪", "🏋️", "🎓", "🍕", "🚗", "👾", "🧩", "💰", "📝", "⭐",
-]
 
 DELETED_TAB_ID  = "__deleted__"
 DELETED_PURGE_DAYS = 60
@@ -86,11 +79,10 @@ _WORK_FIELDS = [
 ]
 
 
-def _make_system_tab(tab_id: str, name: str, icon: str, fields: list) -> dict:
+def _make_system_tab(tab_id: str, name: str, fields: list) -> dict:
     return {
         "id":             tab_id,
         "name":           name,
-        "icon":           icon,
         "is_system":      True,
         "default_fields": [f.copy() for f in fields],
         "credentials":    [],
@@ -102,16 +94,15 @@ def build_default_vault() -> dict:
     return {
         "version": 2,
         "tabs": [
-            _make_system_tab("__banks__",     "Bancos",               "🏦", _BANK_FIELDS),
-            _make_system_tab("__emails__",    "Emails",               "📧", _EMAIL_FIELDS),
-            _make_system_tab("__platforms__", "Plataformas Digitales","🎬", _PLATFORM_FIELDS),
-            _make_system_tab("__social__",    "Redes Sociales",       "🛡️", _SOCIAL_FIELDS),
-            _make_system_tab("__work__",      "Trabajo",    "💼", _WORK_FIELDS),
+            _make_system_tab("__banks__",     "Bancos",               _BANK_FIELDS),
+            _make_system_tab("__emails__",    "Emails",               _EMAIL_FIELDS),
+            _make_system_tab("__platforms__", "Plataformas Digitales",_PLATFORM_FIELDS),
+            _make_system_tab("__social__",    "Redes Sociales",       _SOCIAL_FIELDS),
+            _make_system_tab("__work__",      "Trabajo",    _WORK_FIELDS),
             # Deleted tab — special, always last
             {
                 "id":             DELETED_TAB_ID,
                 "name":           "Eliminados",
-                "icon":           "🗑️",
                 "is_system":      True,
                 "default_fields": [],
                 "credentials":    [],
@@ -136,11 +127,10 @@ def new_credential(name: str, fields: dict, extra_fields: list | None = None) ->
     }
 
 
-def new_user_tab(name: str, icon: str, default_fields: list) -> dict:
+def new_user_tab(name: str,  default_fields: list) -> dict:
     return {
         "id":             new_id(),
         "name":           name,
-        "icon":           icon,
         "is_system":      False,
         "default_fields": default_fields,
         "credentials":    [],

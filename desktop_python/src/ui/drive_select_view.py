@@ -1,5 +1,6 @@
 import customtkinter as ctk
-
+from src.ui.theme import load_icon
+import src.ui.theme as theme
 
 class DriveSelectView(ctk.CTkFrame):
     """
@@ -17,25 +18,31 @@ class DriveSelectView(ctk.CTkFrame):
         back_bar = ctk.CTkFrame(self, fg_color="transparent")
         back_bar.pack(fill="x", padx=12, pady=(12, 0))
 
+        self._icon_arrow = load_icon("back_arrow.png", size=(16,16))
+        self._icon_drive = load_icon("sync_green.png", size=(20,20))
         ctk.CTkButton(
-            back_bar, text="← Volver",
+            back_bar, text="Volver",
+            image=self._icon_arrow,
+            compound="left",
             width=90, height=28,
             fg_color="transparent", border_width=1,
-            border_color="#555555", text_color="#aaaaaa",
-            hover_color="#333333",
+            border_color="#555555", text_color=theme.c("text_secondary"),
+            hover_color=theme.c("hover"),
             command=self.controller.app.show_welcome_view
         ).pack(side="left")
 
         # ── Title ─────────────────────────────────────────────────────────
         ctk.CTkLabel(
-            self, text="☁  Bóvedas en Google Drive",
-            font=("Roboto", 20, "bold")
+            self, text="Bóvedas en Google Drive",
+            image=self._icon_drive,
+            compound="left",
+            font=theme.font(20, "bold")
         ).pack(pady=(20, 4))
 
         ctk.CTkLabel(
             self,
             text="Selecciona la bóveda que deseas abrir.",
-            font=("Roboto", 13), text_color="#888888"
+            font=theme.font(13), text_color="#888888"
         ).pack(pady=(0, 16))
 
         # ── Vault list ────────────────────────────────────────────────────
@@ -46,7 +53,7 @@ class DriveSelectView(ctk.CTkFrame):
             self._build_vault_row(list_frame, vault)
 
         # ── Status label ──────────────────────────────────────────────────
-        self.status_label = ctk.CTkLabel(self, text="", font=("Roboto", 12))
+        self.status_label = ctk.CTkLabel(self, text="", font=theme.font(12))
         self.status_label.pack(pady=(0, 12))
 
     # ── helpers ───────────────────────────────────────────────────────────
@@ -67,19 +74,19 @@ class DriveSelectView(ctk.CTkFrame):
 
         ctk.CTkLabel(
             info_frame, text=name,
-            font=("Roboto", 14, "bold"), anchor="w"
+            font=theme.font(14, "bold"), anchor="w"
         ).pack(anchor="w")
 
         if modified:
             ctk.CTkLabel(
                 info_frame, text=f"Modificado: {modified}",
-                font=("Roboto", 11), text_color="#666666", anchor="w"
+                font=theme.font(11), text_color="#666666", anchor="w"
             ).pack(anchor="w")
 
         ctk.CTkButton(
             row, text="Abrir",
             width=80, height=32,
-            fg_color="#2c8558", hover_color="#1e5c3d",
+            fg_color=theme.c("accent"), hover_color=theme.c("accent_hover"),
             command=lambda v=vault: self._on_select(v)
         ).pack(side="right", padx=12, pady=10)
 

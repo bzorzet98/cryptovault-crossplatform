@@ -1,5 +1,9 @@
 import customtkinter as ctk
 
+import os
+from PIL import Image
+from src.ui.theme import load_icon
+import src.ui.theme as theme
 
 class ExitView(ctk.CTkFrame):
     """
@@ -25,7 +29,7 @@ class ExitView(ctk.CTkFrame):
         title = "¿Cerrar CryptoVault?" if then_quit else "¿Volver al menú principal?"
         ctk.CTkLabel(
             self, text=title,
-            font=("Roboto", 22, "bold")
+            font=theme.font(22, "bold")
         ).pack(pady=(40, 8))
 
         # ── Subtitle / explanation ─────────────────────────────────────────
@@ -42,7 +46,7 @@ class ExitView(ctk.CTkFrame):
 
         ctk.CTkLabel(
             self, text=subtitle,
-            font=("Roboto", 13), text_color="#888888",
+            font=theme.font(13), text_color="#888888",
             justify="center"
         ).pack(pady=(0, 30))
 
@@ -53,9 +57,11 @@ class ExitView(ctk.CTkFrame):
             # Already in Drive — single primary action
             ctk.CTkButton(
                 self,
-                text="☁ Sincronizar y salir" if then_quit else "☁ Sincronizar y volver al menú",
+                text=" Sincronizar y salir" if then_quit else "  Sincronizar y volver al menú",
+                image=load_icon("sync_white.png", size=(18,18)),
+                compound="left",
                 width=btn_w, height=40,
-                fg_color="#2c8558", hover_color="#1e5c3d",
+                fg_color=theme.c("accent"), hover_color=theme.c("accent_hover"),
                 command=lambda: controller.handle_exit_sync_and_finish(then_quit)
             ).pack(pady=8)
 
@@ -63,9 +69,11 @@ class ExitView(ctk.CTkFrame):
             # Local vault — offer Drive upload or skip
             ctk.CTkButton(
                 self,
-                text="☁ Subir a Drive y salir" if then_quit else "☁ Subir a Drive y volver al menú",
+                text="  Subir a Drive y salir" if then_quit else "  Subir a Drive y volver al menú",
+                image=load_icon("sync_white.png", size=(18,18)),
+                compound="left",
                 width=btn_w, height=40,
-                fg_color="#2c8558", hover_color="#1e5c3d",
+                fg_color=theme.c("accent"), hover_color=theme.c("accent_hover"),
                 command=lambda: controller.handle_exit_sync_and_finish(then_quit)
             ).pack(pady=8)
 
@@ -80,10 +88,12 @@ class ExitView(ctk.CTkFrame):
 
         # ── Cancel ────────────────────────────────────────────────────────
         ctk.CTkButton(
-            self, text="← Cancelar",
+            self, text=" Cancelar",
+            image=load_icon("arrow_back.png", size=(18,18)),
+            compound="left",
             width=btn_w, height=36,
             fg_color="transparent", border_width=1,
-            border_color="#555555", text_color="#aaaaaa",
-            hover_color="#333333",
+            border_color="#555555", text_color=theme.c("text_secondary"),
+            hover_color=theme.c("hover"),
             command=controller.handle_cancel_exit
         ).pack(pady=(16, 8))

@@ -1,3 +1,4 @@
+
 import customtkinter as ctk
 import os
 import sys
@@ -12,6 +13,7 @@ from src.ui.welcome_view     import WelcomeView
 from src.ui.loading_view     import LoadingView
 from src.ui.exit_view        import ExitView
 from src.ui.drive_select_view import DriveSelectView
+import src.ui.theme as theme
 
 
 class CryptoVaultApp(ctk.CTk):
@@ -20,14 +22,14 @@ class CryptoVaultApp(ctk.CTk):
 
         self.title("CryptoVault Desktop")
         self.geometry("480x680")
-        ctk.set_appearance_mode("dark")
-
+        
         self.current_view = None
         self.orchestrator = VaultOrchestrator(self)
 
         # Intercept window X button
         self.protocol("WM_DELETE_WINDOW", self._on_window_close)
-
+        
+        theme.load_user_preferences()
         self.orchestrator.start_app()
 
     def _on_window_close(self):

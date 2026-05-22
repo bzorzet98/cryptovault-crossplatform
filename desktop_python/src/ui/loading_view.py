@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import src.ui.theme as theme
 
 class LoadingView(ctk.CTkFrame):
     def __init__(self, master):
@@ -11,14 +12,14 @@ class LoadingView(ctk.CTkFrame):
         self.container.grid(row=0, column=0)
 
         # Spinner animado (simulado con texto o un label)
-        self.title_label = ctk.CTkLabel(self.container, text="CryptoVault", font=("Roboto", 28, "bold"))
+        self.title_label = ctk.CTkLabel(self.container, text="CryptoVault", font=theme.font(28, "bold"))
         self.title_label.pack(pady=10)
 
         self.progress_bar = ctk.CTkProgressBar(self.container, width=300)
         self.progress_bar.pack(pady=20)
         self.progress_bar.set(0)
 
-        self.status_label = ctk.CTkLabel(self.container, text="Iniciando...", font=("Roboto", 14))
+        self.status_label = ctk.CTkLabel(self.container, text="Iniciando...", font=theme.font(14))
         self.status_label.pack(pady=10)
 
     def update_status(self, message, progress):

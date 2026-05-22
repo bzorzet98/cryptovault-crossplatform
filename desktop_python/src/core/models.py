@@ -25,7 +25,6 @@ SYSTEM_TABS: list[dict] = [
     {
         "id": "system_banks",
         "name": "Bancos",
-        "icon": "🏦",
         "is_system": True,
         "default_fields": [
             {"key": "email",    "label": "Email",                 "secret": False},
@@ -40,7 +39,6 @@ SYSTEM_TABS: list[dict] = [
     {
         "id": "system_emails",
         "name": "Emails",
-        "icon": "📧",
         "is_system": True,
         "default_fields": [
             {"key": "email",       "label": "Dirección Email",    "secret": False},
@@ -53,7 +51,6 @@ SYSTEM_TABS: list[dict] = [
     {
         "id": "system_streaming",
         "name": "Plataformas",
-        "icon": "🎬",
         "is_system": True,
         "default_fields": [
             {"key": "email",    "label": "Email / Usuario",   "secret": False},
@@ -66,7 +63,6 @@ SYSTEM_TABS: list[dict] = [
     {
         "id": "system_social",
         "name": "Redes Sociales",
-        "icon": "🛡️",
         "is_system": True,
         "default_fields": [
             {"key": "username", "label": "Usuario / Handle",  "secret": False},
@@ -79,7 +75,6 @@ SYSTEM_TABS: list[dict] = [
     {
         "id": "system_trash",
         "name": "Eliminados",
-        "icon": "🗑️",
         "is_system": True,
         "is_trash": True,
         "default_fields": [],
@@ -131,12 +126,11 @@ def purge_old_trash(vault: dict) -> None:
     ]
 
 
-def add_tab(vault: dict, name: str, icon: str, default_fields: list[dict]) -> dict:
+def add_tab(vault: dict, name: str,  default_fields: list[dict]) -> dict:
     """Creates a new user tab and appends it before the trash tab."""
     tab = {
         "id": new_id(),
         "name": name,
-        "icon": icon,
         "is_system": False,
         "default_fields": default_fields,
         "credentials": [],

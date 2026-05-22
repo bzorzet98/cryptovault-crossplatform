@@ -33,17 +33,25 @@ class VaultOrchestrator:
 
         # ── Environment detection ──────────────────────────────────────────
         if getattr(sys, 'frozen', False):
-            self.base_dir = os.path.dirname(sys.executable)
+            self.bundle_dir = sys._MEIPASS
         else:
             # logic → src → desktop_python
-            self.base_dir = os.path.dirname(
+            self.bundle_dir = os.path.dirname(
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             )
 
+        config_file = os.path.expanduser("~/.cryptovault_config")
+        if os.path.exists(config_file):
+            with open(config_file, "r") as f:
+                self.data_dir = f.read().strip()
+        else:
+            # Ruta de emergencia por si corre la app sin haberla instalado
+            self.data_dir = os.path.expanduser("~/.cryptovault_data")
+            
         # ── Paths ──────────────────────────────────────────────────────────
-        self.vault_path = os.path.join(self.base_dir, 'vault.data')
-        self.cred_path  = os.path.join(self.base_dir, 'credentials.json')
-        self.token_path = os.path.join(self.base_dir, 'token.json')
+        self.cred_path  = os.path.join(self.bundle_dir, 'credentials.json')
+        self.vault_path = os.path.join(self.data_dir, 'vault.data')
+        self.token_path = os.path.join(self.data_dir, 'token.json')
 
         # ── Managers ───────────────────────────────────────────────────────
         self.drive   = DriveManager(credentials_path=self.cred_path,
@@ -111,7 +119,7 @@ class VaultOrchestrator:
 
         filepath = filedialog.askopenfilename(
             title="Seleccionar bóveda",
-            initialdir=self.base_dir,
+            initialdir=self.data_dir,
             filetypes=[("Bóvedas CryptoVault", "*.data"), ("Todos los archivos", "*.*")]
         )
         if not filepath:
@@ -132,7 +140,7 @@ class VaultOrchestrator:
 
         dest = filedialog.asksaveasfilename(
             title="Crear nueva bóveda",
-            initialdir=self.base_dir,
+            initialdir=self.data_dir,
             initialfile="mi_boveda.data",
             defaultextension=".data",
             filetypes=[("Bóveda CryptoVault", "*.data"), ("Todos los archivos", "*.*")]
@@ -193,7 +201,7 @@ class VaultOrchestrator:
         self.app.update_idletasks()
 
         try:
-            local_path = os.path.join(self.base_dir, filename)
+            local_path = os.path.join(self.data_dir, filename)
             self.drive.download_vault(file_id, local_path)
 
             self.storage      = StorageManager(file_path=local_path)
@@ -300,9 +308,9 @@ class VaultOrchestrator:
             target["credentials"].append(cred)
         self._persist(vault)
 
-    def handle_add_tab(self, name: str, icon: str, default_fields: list):
+    def handle_add_tab(self, name: str, default_fields: list):
         vault = self._last_decrypted_data
-        new_tab = new_user_tab(name, icon, default_fields)
+        new_tab = new_user_tab(name, default_fields)
         deleted_idx = next(
             (i for i, t in enumerate(vault["tabs"]) if t["id"] == DELETED_TAB_ID),
             len(vault["tabs"])

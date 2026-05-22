@@ -1,5 +1,7 @@
 import customtkinter as ctk
-
+from src.ui.theme import load_icon
+import src.ui.theme as theme
+from src.ui.settings_dialog import SettingsDialog
 
 class WelcomeView(ctk.CTkFrame):
     """
@@ -17,35 +19,41 @@ class WelcomeView(ctk.CTkFrame):
         # ── Branding ──────────────────────────────────────────────────────
         ctk.CTkLabel(
             self, text="CryptoVault",
-            font=("Roboto", 30, "bold")
+            font=theme.font(30, "bold")
         ).pack(pady=(50, 4))
 
         ctk.CTkLabel(
             self,
             text="Tu gestor de contraseñas cifrado",
-            font=("Roboto", 13), text_color="#888888"
+            font=theme.font(13), text_color="#888888"
         ).pack(pady=(0, 40))
 
         ctk.CTkLabel(
             self, text="¿Cómo deseas ingresar?",
-            font=("Roboto", 14)
+            font=theme.font(14)
         ).pack(pady=(0, 16))
 
         # ── Buttons ───────────────────────────────────────────────────────
+        _icon_lock = load_icon("lock_icon.png")
         self.btn_local = ctk.CTkButton(
             self,
-            text="📂  Abrir Bóveda Local",
+            text="Abrir Bóveda Local",
+            image=_icon_lock,
+            compound="left",
             height=44,
             fg_color="transparent", border_width=2,
             command=controller.handle_load_file
         )
         self.btn_local.pack(pady=8, padx=50, fill="x")
 
+        _icon_sync = load_icon("sync_white.png")
         self.btn_drive = ctk.CTkButton(
             self,
-            text="☁  Cargar desde Google Drive",
+            text="Cargar desde Google Drive",
+            image=_icon_sync,
+            compound="left",
             height=44,
-            fg_color="#2c8558", hover_color="#1e5c3d",
+            fg_color=theme.c("accent"), hover_color=theme.c("accent_hover"),
             command=controller.handle_drive_connection
         )
         self.btn_drive.pack(pady=8, padx=50, fill="x")
@@ -53,28 +61,38 @@ class WelcomeView(ctk.CTkFrame):
         # Separator
         ctk.CTkLabel(
             self, text="─────  o  ─────",
-            font=("Roboto", 11), text_color="#444444"
+            font=theme.font(11), text_color="#444444"
         ).pack(pady=(12, 4))
-
+        
+        _icon_files = load_icon("copy_white.png", size=(16,16))
         self.btn_new = ctk.CTkButton(
             self,
-            text="✦  Crear Nueva Bóveda",
+            text="Crear Nueva Bóveda",
+            image=_icon_files,
+            compound="left",
             height=40,
             fg_color="transparent", border_width=1,
-            border_color="#444444", text_color="#aaaaaa",
+            border_color="#444444", text_color=theme.c("text_secondary"),
             hover_color="#2a2a2a",
             command=controller.handle_create_vault
         )
         self.btn_new.pack(pady=4, padx=50, fill="x")
 
         # ── Status / loading label ─────────────────────────────────────────
-        self.status_label = ctk.CTkLabel(self, text="", font=("Roboto", 12))
+        self.status_label = ctk.CTkLabel(self, text="", font=theme.font(12))
         self.status_label.pack(pady=16)
+        
+        ctk.CTkButton(
+                self,
+                text="Preferencias",
+                width=140,
+                command=self._show_settings
+            ).pack(pady=(10, 0))
 
     # ── Standard interface ────────────────────────────────────────────────
 
     def show_message(self, text: str, msg_type: str = "info"):
-        color = "#ff4d4d" if msg_type == "error" else "#2c8558"
+        color = "#ff4d4d" if msg_type == "error" else theme.c("accent")
         self.status_label.configure(text=text, text_color=color)
 
     def toggle_loading(self, is_loading: bool):
@@ -86,3 +104,12 @@ class WelcomeView(ctk.CTkFrame):
             text="Conectando... por favor espera." if is_loading else "",
             text_color="#888888"
         )
+        
+    def _show_settings(self):
+        SettingsDialog(
+            self,
+            on_apply=self._reload_ui
+        )
+    
+    def _reload_ui(self):
+        self.controller.app.show_welcome_view()
