@@ -3,6 +3,21 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+*.pyc
+
+build/
+dist/
+releases/
+
+*.spec.bak
+
+venv/
+.env/
+
+*.AppImage
+
+.DS_Store
+
 # All .data files
 *.data
 
