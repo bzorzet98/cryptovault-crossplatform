@@ -1,0 +1,33 @@
+[project]
+name = "cryptovault"
+version = "0.1.0"
+description = "Cross-platform encrypted credential manager"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    {name = "Bruno Zorzet", email = "bjzorzet@gmail.com"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Security :: Cryptography",
+] 
+
+dependencies = [
+    "flet>=0.85.2",
+    "cryptography>=42.0.0",
+    "google-api-python-client>=2.100.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pyinstaller>=6.0.0"
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["desktop"]
