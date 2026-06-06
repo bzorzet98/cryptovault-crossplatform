@@ -1,0 +1,20 @@
+{
+    "name": "dark_mode",
+    "colors": {
+        "bg": "#0F0F13",
+        "surface": "#1A1A23",
+        "primary": "#6C5CE7",
+        "error": "#FF5252",
+        "text_main": "#FFFFFF",
+        "text_secondary": "#B0B0B0",
+        "input_bg": "#252533"
+    },
+    "fonts": {
+        "main": ["Arial", 12],
+        "bold": ["Arial", 12, "bold"]
+    },
+    "logo1": "images/logo1.png",
+    "logo2": "images/logo2.png",
+    "shield": "images/shield.png",
+    "appname": "images/name.png"
+}
