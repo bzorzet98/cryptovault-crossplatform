@@ -27,7 +27,9 @@ SPACING_LARGE = 30
 SPACING_SMALL = 10
 
 class LoginView(ft.View):
-    def __init__(self, page: ft.Page, on_login=None, on_back=None):
+    def __init__(self, page: ft.Page, 
+                 on_login=None, 
+                 on_back=None):
         super().__init__(
             route="/login",
             bgcolor=THEME.colors.bg,
