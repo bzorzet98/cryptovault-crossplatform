@@ -4,7 +4,7 @@ from src.config import THEME
 # ==========================================
 # --- 1. APP TEXT & ASSETS CONSTANTS ---
 # ==========================================
-LOGO_PATH = THEME.logo  
+LOGO_PATH = THEME.shield  
 APP_TITLE = "NOMBRE DE TU APP"
 
 # Labels de Navegación
@@ -22,9 +22,9 @@ STATUS_LABEL_SYNC = "Sincronizado"
 # ==========================================
 # --- 2. UI LAYOUT CONSTANTS ---
 # ==========================================
-SIDEBAR_WIDTH = 260
+SIDEBAR_WIDTH = 300
 SIDEBAR_PADDING = 20
-LOGO_SIZE = 45
+LOGO_SIZE = 190
 LOGO_MARGIN_BOTTOM = 40
 
 # Nav Item Constants
@@ -43,11 +43,18 @@ STATUS_SPACING = 10
 STATUS_SYNC_COLOR = "green"
 
 class Sidebar(ft.Container):
-    def __init__(self):
+    def __init__(self, 
+                 on_all_click=None, 
+                 on_fav_click=None, 
+                 on_shared_click=None, 
+                 on_security_click=None, 
+                 on_notes_click=None, 
+                 on_settings_click=None):
+        
         super().__init__(
-            width=250,
+            width=SIDEBAR_WIDTH,
             bgcolor=THEME.colors.surface,
-            padding=ft.Padding.all(20),
+            padding=ft.Padding.all(SIDEBAR_PADDING),
             content=ft.Column(
                 controls=[
                     # Logo
@@ -57,13 +64,13 @@ class Sidebar(ft.Container):
                         alignment=ft.Alignment.CENTER,
                         margin=ft.Margin.only(bottom=LOGO_MARGIN_BOTTOM)
                     ),
-                    # Nav Items
-                    self._nav_item(ft.Icons.LOCK_OUTLINE, NAV_LABEL_ALL, selected=True),
-                    self._nav_item(ft.Icons.STAR_BORDER, NAV_LABEL_FAV),
-                    self._nav_item(ft.Icons.PEOPLE_OUTLINE, NAV_LABEL_SHARED),
-                    self._nav_item(ft.Icons.SHIELD_OUTLINED, NAV_LABEL_SECURITY),
-                    self._nav_item(ft.Icons.NOTES_OUTLINED, NAV_LABEL_NOTES),
-                    self._nav_item(ft.Icons.SETTINGS_OUTLINED, NAV_LABEL_SETTINGS),
+                    # Nav Items - ¡Aquí conectamos los callbacks!
+                    self._nav_item(ft.Icons.LOCK_OUTLINE, NAV_LABEL_ALL, selected=True, on_click=on_all_click),
+                    self._nav_item(ft.Icons.STAR_BORDER, NAV_LABEL_FAV, on_click=on_fav_click),
+                    self._nav_item(ft.Icons.PEOPLE_OUTLINE, NAV_LABEL_SHARED, on_click=on_shared_click),
+                    self._nav_item(ft.Icons.SHIELD_OUTLINED, NAV_LABEL_SECURITY, on_click=on_security_click),
+                    self._nav_item(ft.Icons.NOTES_OUTLINED, NAV_LABEL_NOTES, on_click=on_notes_click),
+                    self._nav_item(ft.Icons.SETTINGS_OUTLINED, NAV_LABEL_SETTINGS, on_click=on_settings_click),
                     
                     ft.Container(expand=True), # Spacer
                     
@@ -76,7 +83,8 @@ class Sidebar(ft.Container):
             )
         )
 
-    def _nav_item(self, icon, text, selected=False):
+    # Añadimos el parámetro on_click aquí
+    def _nav_item(self, icon, text, selected=False, on_click=None):
         return ft.Container(
             content=ft.Row([
                 ft.Icon(icon, size=NAV_ITEM_ICON_SIZE, 
@@ -89,6 +97,8 @@ class Sidebar(ft.Container):
             border_radius=10,
             bgcolor=ft.Colors.with_opacity(0.1, THEME.colors.primary) if selected else None,
             on_hover=lambda e: self._handle_hover(e),
+            on_click=on_click,  # <-- Conectamos la acción al contenedor
+            ink=True,           # <-- Activa el efecto de onda (ripple) al hacer clic
             data=selected
         )
 
@@ -96,7 +106,6 @@ class Sidebar(ft.Container):
         if not e.control.data:
             e.control.bgcolor = ft.Colors.with_opacity(NAV_HOVER_OPACITY, "white") if e.data == "true" else None
             e.control.update()
-
 
     def _status_item(self, icon, text, color="white"):
         return ft.Row([

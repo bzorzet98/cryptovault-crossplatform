@@ -28,7 +28,9 @@ SPACING_MEDIUM = 10
 SPACING_SMALL = 5
 
 class WelcomeView(ft.View):
-    def __init__(self, page: ft.Page, on_load_local=None, on_load_drive=None, on_create_new=None, on_settings=None):
+    def __init__(self, page: ft.Page, on_load_local=None, 
+                 on_load_drive=None, on_create_new=None, 
+                 on_settings=None):
         super().__init__(
             route="/welcome",
             bgcolor=THEME.colors.bg,
